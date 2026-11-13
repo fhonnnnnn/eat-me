@@ -6,11 +6,13 @@ A pixel-art browser game that runs on desktop and phone. No install, no sign-up:
 
 ## How to play
 
-- Eat food to grow. Fruit is a nibble, ice cream and snacks fill you up, fries and fried chicken make you huge.
-- The % over each bubble is its size compared with its rival.
-  - **115% or more** (green, EAT!): you can eat your rival. Reach their middle to take the bite.
-  - **Under 87%** (red, RUN!): your rival can eat you.
-- A round ends when someone gets eaten. After 60 seconds, the bigger bubble takes the round.
+- Everyone starts at size **1**. Food makes your number go up: fruit **+1**, ice cream and snacks **+2**, fries **+3**, fried chicken **+4**.
+- **Bigger number eats smaller number!**
+  - Green tag (EAT!): your number is bigger, so go get them. Reach their middle to take the bite.
+  - Red tag (RUN!): their number is bigger, so run away.
+  - Same number: you just bounce off each other.
+- Bigger bubbles are a little slower, so the smaller one can get away.
+- A round ends when someone gets eaten. After 60 seconds, the bigger number wins the round.
 - Win 2 of 3 rounds to win the match.
 
 ## Controls
