@@ -26,7 +26,7 @@ Against the computer, either set of keys works, and you can drag anywhere on the
 
 - **Vs computer**: Easy, Normal or Hard
 - **2 players, one device**: share a keyboard or a tablet
-- **Play a friend online**: available in the Claude version of the game only
+- **Play a friend online**: tap *Create a game* and send your friend the invite link (or the 4-letter code). They join from any browser on any device, no sign-in needed. Keep the page open while you play. Some school or office Wi-Fi blocks peer-to-peer games; mobile data usually works.
 
 ## Costumes
 
@@ -34,4 +34,4 @@ Cow, shark, pig, fox, penguin and raccoon. Pick yours on the menu.
 
 ## Tech
 
-One self-contained HTML file: canvas pixel art, synthesized Web Audio sound effects, no build step and no dependencies apart from two Google Fonts.
+One self-contained HTML file: canvas pixel art, synthesized Web Audio sound effects, and no build step. Online play is peer-to-peer through [PeerJS](https://peerjs.com/) (MIT licence, bundled in the page) and its free public connection server. The only other outside files are two Google Fonts.
