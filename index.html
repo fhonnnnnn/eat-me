@@ -238,7 +238,7 @@ input[type=text]::placeholder { color: var(--grey); }
 .seg button[aria-checked=true] { background: var(--pink); color: var(--white); box-shadow: 0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink), inset 0 -3px 0 0 var(--pink-d); }
 
 /* costume picker */
-.costumes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.costumes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
 .costumes button {
   appearance: none; border: 0; padding: 4px 0 6px; cursor: pointer; touch-action: manipulation;
   background: var(--cream);
@@ -257,6 +257,8 @@ input[type=text]::placeholder { color: var(--grey); }
 .legend img { width: 28px; height: auto; }
 .legend .lbl { font-weight: 700; }
 .legend .gain { font-family: var(--font-pixel); font-size: 14px; color: var(--green-d); white-space: nowrap; }
+.legend .gain.bad { font-size: 9px; color: var(--pink-d); }
+.legend .gain.good { font-size: 9px; color: var(--purple-d); }
 .keys { display: inline-flex; gap: 4px; vertical-align: 1px; }
 kbd { font: 400 9px var(--font-pixel); background: var(--white); padding: 3px 4px 4px; box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink), inset 0 -2px 0 0 var(--grey-l); margin: 0 2px; }
 
@@ -313,7 +315,7 @@ kbd { font: 400 9px var(--font-pixel); background: var(--white); padding: 3px 4p
   .chip .sub { gap: 5px; }
   .pct { font-size: 10px; padding: 3px 4px 2px; }
   .btn { font-size: 11px; }
-  .costumes { grid-template-columns: repeat(3, 1fr); }
+  .costumes { grid-template-columns: repeat(5, 1fr); gap: 8px; }
   .codeBig { font-size: 32px; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -394,10 +396,15 @@ kbd { font: 400 9px var(--font-pixel); background: var(--white); padding: 3px 4p
             <span class="em" data-f="4,5,6,7"></span><span class="lbl">Ice cream &amp; snacks</span><span class="gain">+2</span>
             <span class="em" data-f="8"></span><span class="lbl">Fries</span><span class="gain">+3</span>
             <span class="em" data-f="9"></span><span class="lbl">Fried chicken</span><span class="gain">+4</span>
+            <span class="em" data-shoe></span><span class="lbl">Shoe! Don't touch</span><span class="gain bad">STUCK 3s</span>
+            <span class="em" data-pu="0"></span><span class="lbl">Blinking star</span><span class="gain good">ZOOM!</span>
+            <span class="em" data-pu="1"></span><span class="lbl">Magic potion</span><span class="gain good">FREEZE RIVAL</span>
           </div>
           <ul>
             <li>Everyone starts at <b>1</b>. Eat food and your number goes up.</li>
             <li><b>Bigger number eats smaller number!</b> <span class="chipdemo eat">5 EAT!</span> green means go get them. <span class="chipdemo run">3 RUN!</span> red means run away. Same number? You just bounce.</li>
+            <li>Watch out for the <b>shoe</b>! Bump into it and it stomps you flat. You can't move for 3 seconds.</li>
+            <li>Now and then a <b>blinking star</b> or a <b>magic potion</b> pops up in the middle. Grab the star to zoom fast for 4 seconds. Drink the potion to freeze your rival in ice for 3 seconds!</li>
             <li>A round ends when someone gets eaten. After 60 seconds the bigger number wins the round. Win 2 of 3 rounds to win.</li>
             <li>Move with <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or arrow keys. On a phone, drag anywhere to steer.</li>
             <li class="fine">On iPhone, switch off Silent mode to hear the munching.</li>
@@ -490,7 +497,14 @@ const K = W / 480;                   // world units per art pixel
 const PWL = W / K, PHL = H / K;      // 480 x 288 art pixels
 const START_R = 26, MAX_R = 100;
 const ROUND_TIME = 60, WIN_AT = 2;
-const MAX_FOOD = 16, FIRST_FOOD = 10, FOOD_EVERY = 0.9;
+const MAX_FOOD = 26, FIRST_FOOD = 16, FOOD_EVERY = 0.6;
+// shoes: touch one and you're stomped flat for FREEZE seconds. Up to SHOE_MAX at once; each hops somewhere new.
+const SHOE_R = 20, SHOE_MAX = 3, SHOE_FIRST = 2, SHOE_LIFE = 9, SHOE_GAP = 1.5, FREEZE = 3;
+// power-ups appear now and then in the middle of the table, so both players can race for them.
+// kind 0 = blinking star (zoom fast), kind 1 = potion (your rival is frozen in ice for FREEZE seconds)
+const PU_R = 18, PU_LIFE = 7, BOOST_TIME = 4, BOOST_MUL = 1.55;
+const STAR_FIRST = [4, 6], STAR_EVERY = [10, 14], POTION_FIRST = [7, 10], POTION_EVERY = [12, 16];
+const rnd = (a) => a[0] + Math.random() * (a[1] - a[0]);
 // every bubble starts at size 1; each food adds its points. Bigger number eats smaller number.
 const sizeR = (s) => Math.min(MAX_R, START_R * Math.sqrt(0.7 + 0.3 * s));
 const NSB = 22;
@@ -518,12 +532,11 @@ const PL = [
   { main: PAL.B, light: PAL.p, dark: PAL.n, label: 'Blue', jm: 'B', jl: 'p', jd: 'n' },
 ];
 const COSTUMES = [
-  { id: 'cow',     name: 'Cow',     body: 'b', shade: 'M', light: 'R', feet: 'M' },
-  { id: 'shark',   name: 'Shark',   body: 'v', shade: 'u', light: 'L', feet: 'u' },
-  { id: 'pig',     name: 'Pig',     body: 'q', shade: 'P', light: 'w', feet: 'P' },
-  { id: 'fox',     name: 'Fox',     body: 'o', shade: 'O', light: 'y', feet: 'O' },
-  { id: 'penguin', name: 'Penguin', body: 'n', shade: 'N', light: 'B', feet: 'o' },
-  { id: 'raccoon', name: 'Raccoon', body: 'g', shade: 'D', light: 'l', feet: 'D' },
+  { id: 'bear',     name: 'Bear',     body: 'b', shade: 'M', light: 'R', feet: 'M', belly: 'e', cap: ['H', 'h'] },
+  { id: 'dino',     name: 'Dinosaur', body: 'H', shade: 'h', light: 'i', feet: 'h', belly: 'y', cap: ['B', 'n'] },
+  { id: 'orca',     name: 'Orca',     body: 'n', shade: 'N', light: 'n', feet: 'N', belly: 'w' },
+  { id: 'tiger',    name: 'Tiger',    body: 'o', shade: 'O', light: 'y', feet: 'O', belly: 'w' },
+  { id: 'elephant', name: 'Elephant', body: 'D', shade: 'N', light: 'g', feet: 'N', belly: 'l' },
 ];
 
 // fruit = nibble, ice cream & snacks = snack, fries = big bite, fried chicken = feast
@@ -561,9 +574,9 @@ const FOODS = [
 ];
 const FOOD_W = FOODS.reduce((a, f) => a + f.w, 0);
 const SKILL = {
-  easy:   { speed: 0.76, react: 0.45, noise: 0.55, chase: 270 },
-  normal: { speed: 0.9,  react: 0.22, noise: 0.25, chase: 390 },
-  hard:   { speed: 1.0,  react: 0.1,  noise: 0.08, chase: 540 },
+  easy:   { speed: 0.76, react: 0.45, noise: 0.55, chase: 270, avoid: 0.35 },
+  normal: { speed: 0.9,  react: 0.22, noise: 0.25, chase: 390, avoid: 0.8 },
+  hard:   { speed: 1.0,  react: 0.1,  noise: 0.08, chase: 540, avoid: 1.2 },
 };
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const coarse = matchMedia('(pointer: coarse)').matches;
@@ -663,6 +676,21 @@ const SFX = {
     this.tone({ type: 'sine', f0: go ? 1976 : 1174, dur: go ? 0.22 : 0.08, vol: 0.05 });
   },
   whistle() { this.tone({ type: 'sine', f0: 1500, f1: 1050, dur: 0.45, vol: 0.12, vib: 70, vibRate: 32 }); },
+  stomp() {
+    this.noise({ dur: 0.2, vol: 0.5, freq: 200, q: 0.8, type: 'lowpass' });
+    this.tone({ type: 'square', f0: 150, f1: 45, dur: 0.22, vol: 0.16 });
+    this.tone({ type: 'sine', f0: 1100, f1: 1500, dur: 0.6, vol: 0.06, delay: 0.18, vib: 140, vibRate: 8 });
+  },
+  unstuck() { this.tone({ type: 'sine', f0: 380, f1: 950, dur: 0.16, vol: 0.2 }); },
+  zoom() {
+    [523, 784, 1047, 1568].forEach((f, i) => this.tone({ type: 'triangle', f0: f, f1: f * 1.06, dur: 0.12, vol: 0.14, delay: i * 0.05 }));
+    this.noise({ dur: 0.35, vol: 0.07, freq: 4500, q: 0.5, type: 'highpass', delay: 0.05 });
+  },
+  potion() {
+    [0, 0.13].forEach((d) => this.tone({ type: 'sine', f0: 330, f1: 150, dur: 0.1, vol: 0.26, delay: d }));
+    this.noise({ dur: 0.5, vol: 0.12, freq: 6000, q: 0.6, type: 'highpass', delay: 0.28 });
+    [1760, 2093, 2637].forEach((f, i) => this.tone({ type: 'sine', f0: f, dur: 0.28, vol: 0.06, delay: 0.28 + i * 0.07 }));
+  },
   win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone({ type: 'square', f0: f, dur: i === 5 ? 0.45 : 0.13, vol: 0.07, delay: i * 0.11 })); },
   lose() { [392, 349, 311, 262].forEach((f, i) => this.tone({ type: 'triangle', f0: f, f1: f * 0.96, dur: 0.24, vol: 0.16, delay: i * 0.18 })); },
 };
@@ -691,7 +719,54 @@ function makeSprite(rows) {
 }
 const SPR = FOODS.map((f) => makeSprite(f.px));
 const SWEAT = makeSprite(['p.', 'pp', 'pw']);
-const HEART = ['PP.PP', 'PPPPP', '.PPP.', '..P..'];
+const STAR = makeSprite(['..y..', '.yyy.', 'yyyyy', '.yyy.', '.y.y.']);
+// a big red sneaker, toe to the right
+const SHOE = makeSprite([
+  '..rrrr..............',
+  '.rqqrrr.............',
+  '.rqrrrrr............',
+  '.rrrrrrrww..........',
+  '.rrrrrrwrww.........',
+  '.rrbrrrrwrww........',
+  '.rrrrrrrrwrwwrr.....',
+  '.rrrrrrrrrrrrrrrrr..',
+  '.rrrrrrrrrrrrrrrrrrr',
+  'wwwwwwwwwwwwwwwwwwww',
+  '.llllllllllllllllll.',
+]);
+// the speed star (bright and dim frames, so it twinkles)
+const BIGSTAR_ROWS = [
+  '.....y.....',
+  '....yyy....',
+  '....ywy....',
+  'yyyyywyyyyy',
+  '.yyyyyyyyy.',
+  '..yyyyyyy..',
+  '...yyyyy...',
+  '..yyyoyyy..',
+  '..yyo.oyy..',
+  '.yyo...oyy.',
+  '.yo.....oy.',
+];
+const BIGSTAR = makeSprite(BIGSTAR_ROWS);
+const BIGSTAR_DIM = makeSprite(BIGSTAR_ROWS.map((r) => r.replace(/y/g, 'o').replace(/w/g, 'y')));
+// the freeze potion: cork, glass neck, purple magic
+const POTION = makeSprite([
+  '...bbb...',
+  '...bbb...',
+  '...lwl...',
+  '...lwl...',
+  '..lwwwl..',
+  '.lwwwwwl.',
+  'lLLLLLLLl',
+  'lLwLLLLvl',
+  'lLwLLLvvl',
+  'lLLLLvvvl',
+  'lvLLvvvvl',
+  '.lvvvvvl.',
+  '..lllll..',
+]);
+const PU_SPR = [BIGSTAR, POTION];
 
 function inTri(px, py, ax, ay, bx, by, cx, cy) {
   const d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by);
@@ -748,47 +823,48 @@ function paintChar(o) {
     put(cx + Math.min(ax, bx, qx) - 1, cy + Math.min(ay, by, qy) - 1, cx + Math.max(ax, bx, qx) + 1, cy + Math.max(ay, by, qy) + 1,
       (dx, dy) => inTri(dx, dy, ax, ay, bx, by, qx, qy), color, layer, mask);
 
-  /* ---- back layer: feet, ears, horns, tails ---- */
+  /* ---- back layer: feet, ears, tails, fins, spikes ---- */
   E(X(-0.36), Y(0.9), R * 0.21 * kx, R * 0.15 * ky, c(C.feet), 1);
   E(X(0.36), Y(0.9), R * 0.21 * kx, R * 0.15 * ky, c(C.feet), 1);
   switch (C.id) {
-    case 'cow':
+    case 'bear':
       for (const s of [-1, 1]) {
-        T(X(0.4 * s), Y(-0.74), X(0.72 * s), Y(-0.5), X(1.06 * s), Y(-1.1), c('w'), 1);
-        T(X(0.4 * s), Y(-0.74), X(0.72 * s), Y(-0.5), X(0.75 * s), Y(-0.75), c('l'), 1);
-        E(X(0.98 * s), Y(-0.3), R * 0.2 * kx, R * 0.11 * ky, c('b'), 1);
+        E(X(0.66 * s), Y(-0.76), R * 0.24 * kx, R * 0.23 * ky, c('b'), 1);
+        E(X(0.68 * s), Y(-0.78), R * 0.11 * kx, R * 0.1 * ky, c('e'), 1);
       }
-      E(FX(-1.0), Y(0.36), R * 0.16 * kx, R * 0.05 * ky, c('b'), 1);
-      E(FX(-1.16), Y(0.32), R * 0.12 * kx, R * 0.12 * ky, c('M'), 1);
+      E(FX(-0.98), Y(0.42), R * 0.14 * kx, R * 0.14 * ky, c('b'), 1);
       break;
-    case 'shark':
-      for (const s of [-1, 1]) T(X(0.88 * s), Y(0.0), X(0.76 * s), Y(0.42), X(1.3 * s), Y(0.46), c('u'), 1);
-      T(FX(-0.9), Y(0.55), FX(-1.42), Y(0.18), FX(-1.36), Y(0.86), c('v'), 1);
+    case 'dino':
+      // tail, then orange spikes down the back
+      T(FX(-0.7), Y(0.15), FX(-0.62), Y(0.8), FX(-1.5), Y(0.82), c('H'), 1);
+      for (const a of [2.7, 3.1, 3.5, 3.9]) {
+        const w = 0.2;
+        T(FX(Math.cos(a - w) * 0.92), Y(Math.sin(a - w) * 0.92), FX(Math.cos(a + w) * 0.92), Y(Math.sin(a + w) * 0.92),
+          FX(Math.cos(a) * 1.34), Y(Math.sin(a) * 1.34), c('o'), 1);
+      }
       break;
-    case 'pig':
-      for (const s of [-1, 1]) T(X(0.62 * s), Y(-0.6), X(0.2 * s), Y(-0.88), X(0.8 * s), Y(-1.1), c('P'), 1);
-      E(FX(-1.06), Y(0.3), R * 0.13 * kx, R * 0.13 * ky, c('P'), 1);
+    case 'orca':
+      for (const s of [-1, 1]) T(X(0.84 * s), Y(0.12), X(0.7 * s), Y(0.5), X(1.28 * s), Y(0.56), c('N'), 1);
+      T(FX(-0.82), Y(0.5), FX(-1.42), Y(0.22), FX(-1.3), Y(0.8), c('n'), 1);
       break;
-    case 'fox':
+    case 'tiger': {
       for (const s of [-1, 1]) {
-        T(X(0.66 * s), Y(-0.48), X(0.18 * s), Y(-0.86), X(0.66 * s), Y(-1.28), c('o'), 1);
-        T(X(0.56 * s), Y(-0.62), X(0.34 * s), Y(-0.8), X(0.6 * s), Y(-1.06), c('c'), 1);
+        E(X(0.64 * s), Y(-0.78), R * 0.22 * kx, R * 0.21 * ky, c('o'), 1);
+        E(X(0.66 * s), Y(-0.8), R * 0.1 * kx, R * 0.09 * ky, c('w'), 1);
       }
-      E(FX(-1.12), Y(0.26), R * 0.44 * kx, R * 0.27 * ky, c('o'), 1);
-      E(FX(-1.44), Y(0.1), R * 0.17 * kx, R * 0.15 * ky, c('w'), 1);
-      break;
-    case 'penguin':
-      for (const s of [-1, 1]) E(X(0.98 * s), Y(0.2), R * 0.16 * kx, R * 0.32 * ky, c('N'), 1);
-      break;
-    case 'raccoon': {
-      for (const s of [-1, 1]) {
-        T(X(0.66 * s), Y(-0.52), X(0.22 * s), Y(-0.84), X(0.62 * s), Y(-1.16), c('g'), 1);
-        T(X(0.56 * s), Y(-0.64), X(0.36 * s), Y(-0.8), X(0.56 * s), Y(-0.98), c('D'), 1);
-      }
-      const tx = FX(-1.12), band = Math.max(1.5, R * 0.16);
-      E(tx, Y(0.3), R * 0.4 * kx, R * 0.22 * ky, (dx) => (Math.floor((dx - tx) / band) & 1 ? c('D') : c('l')), 1);
+      const tx = FX(-1.1), band = Math.max(1.5, R * 0.13);
+      E(tx, Y(0.34), R * 0.4 * kx, R * 0.12 * ky, (dx) => (Math.floor((dx - tx) / band) & 1 ? c('N') : c('o')), 1);
+      E(FX(-1.48), Y(0.3), R * 0.1 * kx, R * 0.1 * ky, c('N'), 1);
       break;
     }
+    case 'elephant':
+      for (const s of [-1, 1]) {
+        E(X(0.98 * s), Y(-0.05), R * 0.44 * kx, R * 0.52 * ky, c('D'), 1);
+        E(X(1.04 * s), Y(-0.02), R * 0.26 * kx, R * 0.34 * ky, c('q'), 1);
+      }
+      E(FX(-1.0), Y(0.46), R * 0.13 * kx, R * 0.05 * ky, c('D'), 1);
+      E(FX(-1.14), Y(0.5), R * 0.07 * kx, R * 0.08 * ky, c('N'), 1);
+      break;
   }
 
   /* ---- body ---- */
@@ -798,16 +874,62 @@ function paintChar(o) {
     if (Math.hypot(dx + R * 0.5, dy + R * 0.46) < Math.max(0.9, R * 0.13)) return c(C.light);
     return c(C.body);
   };
-  if (C.id === 'shark') T(X(-0.52), Y(-0.66), X(0.52), Y(-0.66), 0, Y(-1.5), (dx) => (dx > R * 0.12 ? c('u') : c('v')), 2);
+  // the orca's dorsal fin leans back
+  if (C.id === 'orca') T(FX(-0.38), Y(-0.8), FX(0.12), Y(-0.88), FX(-0.34), Y(-1.4), c('N'), 2);
   const RB = R * 1.6;
   put(cx - RB, cy - RB, cx + RB, cy + RB, (dx, dy) => { const rr = rad(Math.atan2(dy, dx)); return dx * dx + dy * dy <= rr * rr; }, bodyCol, 2);
 
-  /* ---- front: patches and bib (no outline) ---- */
-  if (C.id === 'cow') E(FX(0.24), Y(-0.68), R * 0.28 * kx, R * 0.14 * ky, c('e'), 4, 1);
-  if (C.id === 'raccoon') E(0, Y(-0.1), R * 0.76 * kx, R * 0.54 * ky, c('D'), 4, 1);
-  const big = C.id === 'penguin' || C.id === 'shark';
-  const bibY = Y(big ? 0.46 : 0.52);
-  E(0, bibY, R * (big ? 0.56 : 0.42) * kx, R * (big ? 0.42 : 0.3) * ky, c('w'), 4, 1);
+  /* ---- front: belly, stripes, patches (no outline) ---- */
+  const bellyY = Y(0.5);
+  if (C.id === 'dino') {
+    const band = Math.max(2, R * 0.16);
+    E(0, bellyY, R * 0.5 * kx, R * 0.36 * ky, (dx, dy) => (Math.floor((dy - bellyY) / band) & 1 ? c('o') : c('y')), 4, 1);
+  } else E(0, bellyY, R * 0.5 * kx, R * 0.36 * ky, c(C.belly || 'w'), 4, 1);
+  if (C.id === 'orca') E(FX(-0.66), Y(-0.42), R * 0.22 * kx, R * 0.13 * ky, c('w'), 4, 1);   // white eye patch
+  if (C.id === 'tiger') {
+    for (const s of [-0.3, 0, 0.3]) T(X(s - 0.07), Y(-1.05), X(s + 0.07), Y(-1.05), X(s), Y(-0.64), c('N'), 4, 1);
+    for (const s of [-1, 1]) for (const yy of [-0.08, 0.28]) T(X(1.05 * s), Y(yy - 0.08), X(1.05 * s), Y(yy + 0.08), X(0.68 * s), Y(yy), c('N'), 4, 1);
+  }
+
+  /* ---- front: hats, ribbon, trunk (outlined) ---- */
+  if (C.cap) {
+    // a cap with its brim pointing the way the bubble faces
+    const capY = Y(-0.68), crx = R * 0.6 * kx, cry = R * 0.42 * ky;
+    put(cx - crx - 1, cy + capY - cry - 1, cx + crx + 1, cy + capY + 1,
+      (dx, dy) => { const a = dx / crx, b = (dy - capY) / cry; return dy <= capY && a * a + b * b <= 1; },
+      (dx) => (dx > crx * 0.45 ? c(C.cap[1]) : c(C.cap[0])), 3);
+    E(FX(0.52), capY, R * 0.38 * kx, Math.max(0.7, R * 0.08 * ky), c(C.cap[1]), 3);
+    E(0, capY - cry + 0.5, Math.max(0.7, R * 0.07), Math.max(0.6, R * 0.06), c('w'), 3);
+  }
+  if (C.id === 'orca') {
+    // a little red bow: round loops with a soft darker edge instead of a black outline
+    const bx = FX(0.36), by = Y(-0.74), lx = R * 0.14 * kx, rx = R * 0.15 * kx, ry = R * 0.12 * ky;
+    for (const s of [-1, 1]) {
+      const ex = bx + s * lx;
+      E(ex, by, rx, ry, (dx, dy) => {
+        const q = ((dx - ex) / rx) ** 2 + ((dy - by) / ry) ** 2;
+        if (q > 0.55) return c('m');
+        if (dx - ex < -rx * 0.15 && dy - by < -ry * 0.1) return c('q');
+        return c('r');
+      }, 4, 1);
+      T(bx, by, bx + s * R * 0.13 * kx, by + R * 0.2 * ky, bx + s * R * 0.03 * kx, by + R * 0.19 * ky, c('m'), 4, 1);
+    }
+    E(bx, by, Math.max(0.8, R * 0.06 * kx), Math.max(0.8, R * 0.07 * ky), c('m'), 4, 1);
+  }
+  if (C.id === 'elephant') {
+    // a short, straight trunk sticking out from the forehead, with two little wrinkles
+    const x1 = FX(0.06), y1 = Y(-0.6), x2 = FX(0.72), y2 = Y(-0.86), r1 = R * 0.21, r2 = R * 0.18;
+    const vx = x2 - x1, vy = y2 - y1, L2 = vx * vx + vy * vy || 1, len = Math.sqrt(L2), pad = r1 + 1;
+    const along = (dx, dy) => clamp(((dx - x1) * vx + (dy - y1) * vy) / L2, 0, 1);
+    put(cx + Math.min(x1, x2) - pad, cy + Math.min(y1, y2) - pad, cx + Math.max(x1, x2) + pad, cy + Math.max(y1, y2) + pad,
+      (dx, dy) => { const t = along(dx, dy); return Math.hypot(dx - (x1 + vx * t), dy - (y1 + vy * t)) <= r1 + (r2 - r1) * t; },
+      (dx, dy) => {
+        const t = along(dx, dy), s = t * len, rr = r1 + (r2 - r1) * t;
+        if (len > 6 && (Math.abs(s - len * 0.55) < 0.55 || Math.abs(s - len * 0.75) < 0.55)) return c('N');
+        if (s > len * 0.9 || dy - (y1 + vy * t) < -rr * 0.45) return c('g');   // light tip and top edge
+        return c('D');
+      }, 3);
+  }
 
   /* ---- front: the jelly window (outlined) ---- */
   const wy = Y(-0.1), wrx = R * 0.58 * kx, wry = R * 0.44 * ky;
@@ -815,8 +937,6 @@ function paintChar(o) {
     const a = (dx + wrx * 0.2) / wrx, b = (dy - wy + wry * 0.22) / wry;
     return a * a + b * b > 1 ? c(J.jd) : c(J.jm);
   }, 3, 1);
-  if (C.id === 'pig') E(0, Y(-0.66), R * 0.23 * kx, R * 0.14 * ky, c('P'), 3, 1);
-  if (C.id === 'penguin') E(0, Y(-0.64), R * 0.17 * kx, R * 0.11 * ky, c('o'), 3, 1);
 
   /* ---- outlines ---- */
   const tmp = buf.tmp; tmp.set(col);
@@ -835,20 +955,6 @@ function paintChar(o) {
   /* ---- details on top ---- */
   E(X(-0.28), wy - wry * 0.42, Math.max(0.8, R * 0.11), Math.max(0.6, R * 0.06), c(J.jl), 3, 2);
   E(X(-0.38), wy - wry * 0.3, Math.max(0.6, R * 0.06), Math.max(0.6, R * 0.05), c('w'), 3, 2);
-  if (C.id === 'pig' && R >= 7) {
-    for (const s of [-1, 1]) { const px = Math.floor(cx + X(0.08 * s) - (s < 0 ? 0.5 : 0)), py = Math.floor(cy + Y(-0.66)); const i = py * S + px; if (px >= 0 && px < S && py >= 0 && py < S && lay[i] === 3 && col[i] !== ink) col[i] = CI.m; }
-  }
-  const hs = Math.max(1, Math.floor(R / 15));
-  const hx0 = Math.round(cx - 2.5 * hs), hy0 = Math.round(cy + bibY - 2 * hs);
-  for (let ry = 0; ry < 4; ry++) for (let rx = 0; rx < 5; rx++) {
-    if (HEART[ry][rx] !== 'P') continue;
-    for (let sy = 0; sy < hs; sy++) for (let sx = 0; sx < hs; sx++) {
-      const px = hx0 + rx * hs + sx, py = hy0 + ry * hs + sy;
-      if (px < 0 || py < 0 || px >= S || py >= S) continue;
-      const i = py * S + px;
-      if (lay[i] === 4 && col[i] === CI.w) col[i] = CI.P;
-    }
-  }
 
   /* ---- to pixels ---- */
   const data = buf.img.data;
@@ -926,7 +1032,7 @@ function mkBubble(i) {
     i, x: i ? W * 0.8 : W * 0.2, y: H / 2, vx: 0, vy: 0, r: START_R, rd: START_R, rdv: 0,
     off: new Float32Array(NSB), ov: new Float32Array(NSB),
     lookX: i ? -1 : 1, lookY: 0, blink: 1 + Math.random() * 3, blinkT: 0, mouth: 0, want: 0, mood: 0,
-    size: 1, scale: 1, dead: false, hidden: false, net: null, face: i ? -1 : 1, buf: null,
+    size: 1, frozen: 0, fkind: 0, stompT: 9, boost: 0, scale: 1, dead: false, hidden: false, net: null, face: i ? -1 : 1, buf: null,
   };
 }
 // bigger bubbles are slower, so the smaller one can get away
@@ -955,7 +1061,7 @@ function walls(b) {
   if (b.y > H - b.r) { b.y = H - b.r; if (b.vy > 0) { impulse(b, Math.PI / 2, Math.min(2.4, b.vy / 82)); b.vy = -b.vy * 0.6; } }
 }
 function drive(b, ix, iy, dt) {
-  const ms = maxSpeed(b.r), k = Math.min(1, 7.5 * dt);
+  const ms = maxSpeed(b.r) * (b.boost > 0 ? BOOST_MUL : 1), k = Math.min(1, 7.5 * dt);
   b.vx += (ix * ms - b.vx) * k; b.vy += (iy * ms - b.vy) * k;
   b.x += b.vx * dt; b.y += b.vy * dt;
   walls(b);
@@ -1033,6 +1139,8 @@ function newGame(mode, opts = {}) {
     round: 1, score: [0, 0], timer: ROUND_TIME, rs: 0, rw: -1, how: '', mw: -1,
     b: [mkBubble(0), mkBubble(1)],
     foods: [], foodId: 1, foodT: 0, parts: [], pops: [], events: [], evId: 0,
+    shoes: [], shoeId: 1, shoeT: SHOE_FIRST,
+    pu: [], puId: 1, starT: 0, potT: 0,
     dying: null, shake: 0, paused: false, first: true,
     names: opts.names || [PL[0].label, PL[1].label],
     me: opts.me == null ? -1 : opts.me,
@@ -1050,21 +1158,61 @@ function pickFoodType() {
   for (let i = 0; i < FOODS.length; i++) { r -= FOODS[i].w; if (r <= 0) return i; }
   return 0;
 }
+function foodSpotOK(g, x, y, fr) {
+  for (const b of g.b) if (Math.hypot(b.x - x, b.y - y) < b.r + fr + 38) return false;
+  for (const f of g.foods) if (Math.hypot(f.x - x, f.y - y) < 36) return false;
+  for (const s of g.shoes) if (Math.hypot(s.x - x, s.y - y) < SHOE_R + fr + 22) return false;
+  return true;
+}
+const addFood = (g, x, y, t) => g.foods.push({ id: g.foodId++, x, y, t, age: 0, hide: 0 });
+// new food goes on whichever half has less, so neither player gets the richer side
 function spawnFood(g) {
   const t = pickFoodType(), fr = FOODS[t].r;
-  for (let k = 0; k < 14; k++) {
-    const x = 32 + Math.random() * (W - 64), y = 32 + Math.random() * (H - 64);
+  let left = 0;
+  for (const f of g.foods) if (f.x < W / 2) left++;
+  const right = g.foods.length - left;
+  const side = left < right ? 0 : right < left ? 1 : (Math.random() < 0.5 ? 0 : 1);
+  for (let k = 0; k < 16; k++) {
+    const off = 32 + Math.random() * (W / 2 - 60);
+    const x = side === 0 ? off : W - off, y = 32 + Math.random() * (H - 64);
+    if (foodSpotOK(g, x, y, fr)) { addFood(g, x, y, t); return; }
+  }
+}
+// the starting table is a mirror image: the same snack at the same spot on each half
+function spawnFoodPair(g) {
+  const t = pickFoodType(), fr = FOODS[t].r;
+  for (let k = 0; k < 24; k++) {
+    const x = 32 + Math.random() * (W / 2 - 60), y = 32 + Math.random() * (H - 64);
+    if (foodSpotOK(g, x, y, fr) && foodSpotOK(g, W - x, y, fr)) { addFood(g, x, y, t); addFood(g, W - x, y, t); return; }
+  }
+}
+function spawnShoe(g) {
+  for (let k = 0; k < 24; k++) {
+    const x = 60 + Math.random() * (W - 120), y = 50 + Math.random() * (H - 100);
     let ok = true;
-    for (const b of g.b) if (Math.hypot(b.x - x, b.y - y) < b.r + fr + 38) { ok = false; break; }
-    if (ok) for (const f of g.foods) if (Math.hypot(f.x - x, f.y - y) < 36) { ok = false; break; }
-    if (ok) { g.foods.push({ id: g.foodId++, x, y, t, age: 0, hide: 0 }); return; }
+    for (const b of g.b) if (Math.hypot(b.x - x, b.y - y) < b.r + 120) ok = false;
+    for (const f of g.foods) if (Math.hypot(f.x - x, f.y - y) < 34) ok = false;
+    for (const s of g.shoes) if (Math.hypot(s.x - x, s.y - y) < 110) ok = false;
+    if (ok) { g.shoes.push({ id: g.shoeId++, x, y, age: 0 }); return; }
+  }
+}
+function spawnPU(g, kind) {
+  for (let k = 0; k < 24; k++) {
+    const x = W * 0.3 + Math.random() * W * 0.4, y = 60 + Math.random() * (H - 120);
+    let ok = true;
+    for (const b of g.b) if (Math.hypot(b.x - x, b.y - y) < b.r + 90) ok = false;
+    for (const s of g.shoes) if (Math.hypot(s.x - x, s.y - y) < 70) ok = false;
+    for (const p of g.pu) if (Math.hypot(p.x - x, p.y - y) < 120) ok = false;
+    for (const f of g.foods) if (Math.hypot(f.x - x, f.y - y) < 30) ok = false;
+    if (ok) { g.pu.push({ id: g.puId++, k: kind, x, y, age: 0 }); return; }
   }
 }
 function startRound(g) {
   g.rs++;
   g.b = [mkBubble(0), mkBubble(1)];
-  g.foods = [];
-  for (let i = 0; i < FIRST_FOOD; i++) spawnFood(g);
+  g.foods = []; g.shoes = []; g.shoeT = SHOE_FIRST;
+  g.pu = []; g.starT = rnd(STAR_FIRST); g.potT = rnd(POTION_FIRST);
+  for (let i = 0; i < FIRST_FOOD / 2; i++) spawnFoodPair(g);
   g.foodT = FOOD_EVERY; g.timer = ROUND_TIME; g.dying = null; g.parts = []; g.pops = [];
   g.rw = -1; g.how = ''; g.n = 0;
   setPhase(g, 'count');
@@ -1088,6 +1236,34 @@ function onEvent(g, k, w, ft, x, y) {
     b.mouth = 1; pulse(b, 0.55);
     burst(g, x, y, PAL[FOODS[ft].c], 9, 125, 5);
     if (!quiet) { SFX.eat(ft); g.pops.push({ x: b.x, y: b.y, txt: '+' + FOODS[ft].pts, w, t: 0 }); if (g.pops.length > 8) g.pops.shift(); }
+  } else if (k === 2) {
+    // stomped by the shoe
+    const b = g.b[w];
+    if (b.frozen < 0.5) b.frozen = FREEZE;
+    b.fkind = 0;
+    b.stompT = 0; b.vx *= 0.15; b.vy *= 0.15;
+    impulse(b, -Math.PI / 2, 2.6);
+    burst(g, x, y, PAL.l, 10, 150, 5);
+    burst(g, x, y, PAL.r, 6, 120, 4);
+    if (!quiet) SFX.stomp();
+    g.shake = Math.max(g.shake, 0.2);
+  } else if (k === 3) {
+    // grabbed the speed star
+    const b = g.b[w];
+    if (b.boost < 0.5) b.boost = BOOST_TIME;
+    pulse(b, 0.8);
+    burst(g, x, y, PAL.y, 14, 190, 5);
+    burst(g, x, y, PAL.w, 6, 150, 4);
+    if (!quiet) { SFX.zoom(); g.pops.push({ txt: 'ZOOM!', w, t: 0 }); }
+  } else if (k === 4) {
+    // drank the potion: the rival freezes solid
+    const o = g.b[1 - w];
+    if (o.frozen < 0.5) o.frozen = FREEZE;
+    o.fkind = 1; o.vx *= 0.1; o.vy *= 0.1;
+    burst(g, x, y, PAL.L, 10, 150, 5);
+    burst(g, o.x, o.y, PAL.p, 16, 200, 6);
+    burst(g, o.x, o.y, PAL.w, 8, 160, 4);
+    if (!quiet) { SFX.potion(); g.pops.push({ txt: 'FROZEN!', w: 1 - w, t: 0 }); }
   } else if (k === 1) {
     startDying(g, 1 - w, w);
     if (!quiet) SFX.gulp();
@@ -1162,13 +1338,22 @@ function aiInput(g, i, dt) {
       dx = op.x + op.vx * lead - me.x; dy = op.y + op.vy * lead - me.y;
     } else {
       const f = bestFood(g, me, op, threat);
-      if (f) { dx = f.x - me.x; dy = f.y - me.y; }
+      // a star or potion is worth a detour
+      let tgt = f, best = f ? FOODS[f.t].pts / (Math.hypot(f.x - me.x, f.y - me.y) + 52) : 0;
+      for (const p of g.pu) { const s = 6 / (Math.hypot(p.x - me.x, p.y - me.y) + 52); if (s > best) { best = s; tgt = p; } }
+      if (tgt) { dx = tgt.x - me.x; dy = tgt.y - me.y; }
       else {
         ai.wander += (Math.random() - 0.5) * 1.2;
         dx = Math.cos(ai.wander) + (W / 2 - me.x) / W; dy = Math.sin(ai.wander) + (H / 2 - me.y) / H;
       }
     }
-    const m = Math.hypot(dx, dy) || 1; dx /= m; dy /= m;
+    let m = Math.hypot(dx, dy) || 1; dx /= m; dy /= m;
+    // steer around the shoe (the easy computer is a bit careless)
+    for (const sh of g.shoes) {
+      const sx = me.x - sh.x, sy = me.y - sh.y, sd = Math.hypot(sx, sy) || 1, reach = me.r + SHOE_R + 70;
+      if (sd < reach) { const k = (1 - sd / reach) * 2.5 * ai.avoid; dx += sx / sd * k; dy += sy / sd * k; }
+    }
+    m = Math.hypot(dx, dy) || 1; dx /= m; dy /= m;
     const a = (Math.random() - 0.5) * ai.noise, c = Math.cos(a), s = Math.sin(a);
     ai.dx = dx * c - dy * s; ai.dy = dx * s + dy * c;
   }
@@ -1251,6 +1436,7 @@ function authStep(g, dt) {
     for (let i = 0; i < 2; i++) {
       const b = g.b[i], c = controller(g, i);
       if (c === 'net') { netFollow(b, dt); continue; }
+      if (b.frozen > 0) { settle(b, dt); continue; }
       let inp = [0, 0];
       if (c === 'ai') inp = aiInput(g, i, dt);
       else if (c === 'any') inp = readHuman(0, true);
@@ -1284,6 +1470,40 @@ function authStep(g, dt) {
     }
     g.foodT -= dt;
     if (g.foodT <= 0) { g.foodT = FOOD_EVERY; if (g.foods.length < MAX_FOOD) spawnFood(g); }
+    if (g.phase === 'play') {
+      for (let k = g.shoes.length - 1; k >= 0; k--) {
+        const s = g.shoes[k];
+        if (s.age > SHOE_LIFE) { g.shoes.splice(k, 1); g.shoeT = Math.max(g.shoeT, 1); continue; }
+        for (let i = 0; i < 2; i++) {
+          const b = g.b[i];
+          if (b.frozen <= 0 && Math.hypot(b.x - s.x, b.y - s.y) < b.r + SHOE_R * 0.6) {
+            g.shoes.splice(k, 1); g.shoeT = Math.max(g.shoeT, 1);
+            b.frozen = FREEZE;
+            addEvent(g, 2, i, 0, s.x, s.y);
+            break;
+          }
+        }
+      }
+      if (g.shoes.length < SHOE_MAX) { g.shoeT -= dt; if (g.shoeT <= 0) { spawnShoe(g); g.shoeT = SHOE_GAP; } }
+      // power-ups: a blinking star (speed) and a potion (freezes your rival)
+      g.starT -= dt; g.potT -= dt;
+      if (g.starT <= 0) { if (!g.pu.some((p) => p.k === 0)) spawnPU(g, 0); g.starT = rnd(STAR_EVERY); }
+      if (g.potT <= 0) { if (!g.pu.some((p) => p.k === 1)) spawnPU(g, 1); g.potT = rnd(POTION_EVERY); }
+      for (let k = g.pu.length - 1; k >= 0; k--) {
+        const p = g.pu[k];
+        if (p.age > PU_LIFE) { g.pu.splice(k, 1); continue; }
+        for (let i = 0; i < 2; i++) {
+          const b = g.b[i];
+          if (Math.hypot(b.x - p.x, b.y - p.y) < b.r + PU_R * 0.6) {
+            g.pu.splice(k, 1);
+            if (p.k === 0) b.boost = BOOST_TIME;
+            else { const o = g.b[1 - i]; o.frozen = Math.max(o.frozen, FREEZE); o.fkind = 1; }
+            addEvent(g, p.k === 0 ? 3 : 4, i, 0, p.x, p.y);
+            break;
+          }
+        }
+      }
+    }
   } else if (g.phase === 'roundEnd') {
     for (const b of g.b) {
       if (b.dead || (g.dying && g.dying.v === b.i)) continue;
@@ -1311,8 +1531,8 @@ function guestStep(g, dt) {
   const b0 = g.b[0], b1 = g.b[1];
   const d = g.dying;
   if (g.phase === 'play') {
-    const inp = readHuman(0, true);
-    drive(b1, inp[0], inp[1], dt);
+    if (b1.frozen > 0) settle(b1, dt);
+    else { const inp = readHuman(0, true); drive(b1, inp[0], inp[1], dt); }
     netFollow(b0, dt);
     if (!canEat(b0, b1) && !canEat(b1, b0)) { if (collide(b0, b1, false, true)) SFX.boing(); }
     const now = performance.now();
@@ -1334,6 +1554,27 @@ function update(dt) {
   stepDying(g, dt);
   for (const b of g.b) animBubble(g, b, dt);
   for (const f of g.foods) f.age += dt;
+  for (const s of g.shoes) s.age += dt;
+  for (const p of g.pu) p.age += dt;
+  for (const b of g.b) {
+    b.stompT += dt;
+    if (b.frozen > 0) {
+      b.frozen -= dt;
+      if (b.frozen <= 0) {
+        b.frozen = 0; pulse(b, 0.9);
+        if (b.fkind === 1 && !b.dead) burst(g, b.x, b.y, PAL.p, 12, 170, 5);   // the ice cracks
+        if (g.mode !== 'demo' && !b.dead) SFX.unstuck();
+      }
+    }
+    if (b.boost > 0) {
+      b.boost = Math.max(0, b.boost - dt);
+      // sparkly speed trail
+      if (!b.dead && !b.hidden && Math.hypot(b.vx, b.vy) > 60 && Math.random() < dt * 30) {
+        const a = Math.random() * TAU;
+        g.parts.push({ x: b.x - b.vx * 0.06 + Math.cos(a) * b.r * 0.5, y: b.y - b.vy * 0.06 + Math.sin(a) * b.r * 0.5, vx: -b.vx * 0.2, vy: -b.vy * 0.2, life: 0, max: 0.35, col: Math.random() < 0.5 ? PAL.y : PAL.w, sz: 5 });
+      }
+    }
+  }
   stepParts(g, dt);
   for (let i = g.pops.length - 1; i >= 0; i--) { g.pops[i].t += dt; if (g.pops[i].t > 1) g.pops.splice(i, 1); }
   if (g.mode === 'host' || g.mode === 'guest') netTick(g);
@@ -1348,12 +1589,13 @@ function radFor(g, b, R) {
   const st = Math.min(0.13, sn * 0.1);
   const jig = reduceMotion ? 0 : 0.045 * Math.min(1, sn) * Math.sin(g.t * 15 + b.i * 2);
   const breathe = reduceMotion ? 1 : 1 + 0.03 * Math.sin(g.t * 4.2 + b.i * 2.1);
+  const flat = b.frozen > 0 && b.fkind === 0 ? 0.17 : 0;   // stomped: wide and short
   return (th) => {
     let a = (th - aoff) / TAU * NSB; a = ((a % NSB) + NSB) % NSB;
     const fl = Math.floor(a), i0 = fl % NSB, i1 = (i0 + 1) % NSB, t = a - fl;
     const off = b.off[i0] * (1 - t) + b.off[i1] * t;
     const c2 = Math.cos(2 * (th - phi));
-    return R * breathe * (1 + off) * (1 + st * c2) * (1 + jig * c2);
+    return R * breathe * (1 + off) * (1 + st * c2) * (1 + jig * c2) * (1 + flat * Math.cos(2 * th));
   };
 }
 function drawBubble(g, b) {
@@ -1367,7 +1609,58 @@ function drawBubble(g, b) {
   if (b.mood === -1 && !reduceMotion) x += ((g.t * 24) | 0) % 2 ? 1 : 0;
   pixEllipse(pctx, x, Math.round(y + R * 0.98), R * 0.78, Math.max(1, R * 0.14), PAL.l);
   pctx.drawImage(b.buf.canvas, x - b.buf.cx, y - b.buf.cy);
-  if (b.mood === -1) pctx.drawImage(SWEAT, x + Math.round(R * 0.75), y - Math.round(R * 1.05) + (((g.t * 4) | 0) % 2));
+  if (b.mood === -1 && b.frozen <= 0) pctx.drawImage(SWEAT, x + Math.round(R * 0.75), y - Math.round(R * 1.05) + (((g.t * 4) | 0) % 2));
+  if (b.frozen > 0 && b.fkind === 1) {
+    // frozen by the potion: a see-through block of ice with a snowflake
+    const hw = Math.round(R * 1.2), top = Math.round(y - R * 1.2), bot = Math.round(y + R * 1.05);
+    pctx.globalAlpha = 0.5; pctx.fillStyle = PAL.p; pctx.fillRect(x - hw, top, hw * 2, bot - top); pctx.globalAlpha = 1;
+    pctx.fillStyle = PAL.w;
+    pctx.fillRect(x - hw, top, hw * 2, 1); pctx.fillRect(x - hw, bot - 1, hw * 2, 1);
+    pctx.fillRect(x - hw, top, 1, bot - top); pctx.fillRect(x + hw - 1, top, 1, bot - top);
+    for (let k = 0; k < Math.round(R * 0.5); k++) pctx.fillRect(x - hw + 3 + k, top + 3 + k * 2, 1, 2);
+    const sx = x + hw - 5, sy = top + 4;
+    pctx.fillRect(sx - 2, sy, 5, 1); pctx.fillRect(sx, sy - 2, 1, 5);
+    if (!reduceMotion && ((g.t * 3) | 0) % 2) { pctx.fillRect(sx - 2, sy - 2, 1, 1); pctx.fillRect(sx + 2, sy + 2, 1, 1); }
+  } else if (b.frozen > 0) {
+    // the shoe comes down on its head, then dizzy stars circle until it can move again
+    if (b.stompT < 0.7) {
+      const drop = b.stompT < 0.12 ? (1 - b.stompT / 0.12) * R * 1.6 : 0;
+      pctx.drawImage(SHOE, x - (SHOE.width >> 1), Math.round(y - R * 0.8 - SHOE.height - drop + 2));
+    }
+    for (let k = 0; k < 3; k++) {
+      const a = (reduceMotion ? 0 : g.t * 5) + k * TAU / 3;
+      pctx.drawImage(STAR, Math.round(x + Math.cos(a) * R * 0.85 - 2), Math.round(y - R * 0.95 + Math.sin(a) * R * 0.25 - 2));
+    }
+  }
+}
+function drawPU(g, p) {
+  if (p.age > PU_LIFE - 1.5 && ((p.age * 8) | 0) % 2) return;   // blinks before it disappears
+  const x = Math.round(PX(p.x, p.y)), y = Math.round(PY(p.x, p.y));
+  const sc = p.age < 0.3 ? clamp(easeOutBack(p.age / 0.3), 0, 1.3) : 1;
+  let spr = PU_SPR[p.k] || BIGSTAR, dy = 0;
+  if (p.k === 0) { if (!reduceMotion && ((g.t * 6) | 0) % 2) spr = BIGSTAR_DIM; }
+  else dy = reduceMotion ? 0 : Math.round(Math.sin(g.t * 4 + p.id) * 1.5);
+  pixEllipse(pctx, x, y + (spr.height >> 1) + 1, 6, 1.2, PAL.l);
+  const w = Math.max(1, Math.round(spr.width * sc)), h = Math.max(1, Math.round(spr.height * sc));
+  pctx.drawImage(spr, x - (w >> 1), y - (h >> 1) + dy, w, h);
+  if (!reduceMotion) {
+    // twinkles around the star, bubbles rising from the potion
+    pctx.fillStyle = p.k === 0 ? PAL.y : PAL.L;
+    for (let k = 0; k < 3; k++) {
+      const ph = (g.t * (p.k === 0 ? 1.6 : 1.1) + k / 3 + p.id * 0.37) % 1;
+      if (p.k === 0) { const a = k * TAU / 3 + g.t * 2; pctx.fillRect(Math.round(x + Math.cos(a) * 10), Math.round(y + Math.sin(a) * 9), ph < 0.5 ? 2 : 1, ph < 0.5 ? 2 : 1); }
+      else pctx.fillRect(x - 2 + k * 2, Math.round(y - (h >> 1) - 2 - ph * 8) + dy, 1, 1);
+    }
+  }
+}
+function drawShoe(g, s) {
+  if (s.age > SHOE_LIFE - 1.5 && ((s.age * 8) | 0) % 2) return;   // blinks before it hops away
+  const x = Math.round(PX(s.x, s.y)), y = Math.round(PY(s.x, s.y));
+  const sc = s.age < 0.3 ? clamp(easeOutBack(s.age / 0.3), 0, 1.3) : 1;
+  const hop = reduceMotion ? 0 : (((g.t * 2 + s.id) % 1) < 0.15 ? -2 : 0);
+  pixEllipse(pctx, x, y + (SHOE.height >> 1), 9, 1.2, PAL.l);
+  const w = Math.max(1, Math.round(SHOE.width * sc)), h = Math.max(1, Math.round(SHOE.height * sc));
+  pctx.drawImage(SHOE, x - (w >> 1), y - (h >> 1) + hop, w, h);
 }
 function drawFood(g, f) {
   const sp = SPR[f.t];
@@ -1449,7 +1742,8 @@ function drawOverlay(g) {
   for (const p of g.pops) {
     const b = g.b[p.w]; if (!b || b.dead || b.hidden) continue;
     const R = (b.rd * b.scale) / K;
-    const X = SXp(PX(b.x, b.y) + R * 0.95), Y = SYp(PY(b.x, b.y) - R * 0.4 - p.t * 14);
+    const word = p.txt.length > 3;   // ZOOM! / FROZEN! sit over the bubble; +1..+4 beside it
+    const X = SXp(PX(b.x, b.y) + (word ? 0 : R * 0.95)), Y = SYp(PY(b.x, b.y) - (word ? R * 0.2 : R * 0.4) - p.t * 14);
     ctx.globalAlpha = 1 - Math.max(0, (p.t - 0.6) / 0.4);
     pxText(p.txt, X, Y, view.u >= 2 ? 16 : 12, PAL.y);
     ctx.globalAlpha = 1;
@@ -1511,6 +1805,8 @@ function render() {
   if (g) {
     const now = performance.now();
     for (const f of g.foods) { if (f.hide && now - f.hide < 700) continue; drawFood(g, f); }
+    for (const s of g.shoes) drawShoe(g, s);
+    for (const p of g.pu) drawPU(g, p);
     const order = g.b.slice().sort((a, b) => a.rd * a.scale - b.rd * b.scale);
     for (const b of order) drawBubble(g, b);
     drawParts(g);
@@ -1605,6 +1901,15 @@ function buildMenuArt() {
     box.append(bt);
   });
   document.querySelectorAll('#legend .em').forEach((el) => {
+    if (el.hasAttribute('data-shoe') || el.hasAttribute('data-pu')) {
+      const spr = el.hasAttribute('data-shoe') ? SHOE : PU_SPR[Number(el.dataset.pu)];
+      const nm = el.hasAttribute('data-shoe') ? 'Shoe' : el.dataset.pu === '0' ? 'Blinking star' : 'Magic potion';
+      const img = document.createElement('img');
+      img.className = 'px'; img.alt = nm; img.title = nm;
+      img.src = spr.toDataURL(); img.style.width = spr.width * 2 + 'px';
+      el.append(img);
+      return;
+    }
     for (const idx of el.dataset.f.split(',').map(Number)) {
       const img = document.createElement('img');
       img.className = 'px'; img.alt = FOODS[idx].name; img.title = FOODS[idx].name;
@@ -1873,6 +2178,11 @@ function packState(g) {
     b: [Math.round(b0.x), Math.round(b0.y), Math.round(b0.vx), Math.round(b0.vy), Math.round(b0.r * 10) / 10,
         Math.round(b1.x), Math.round(b1.y), Math.round(b1.r * 10) / 10],
     sz: [b0.size, b1.size],
+    fz: [Math.round(b0.frozen * 10) / 10, Math.round(b1.frozen * 10) / 10],
+    sh: g.shoes.flatMap((s) => [s.id, Math.round(s.x), Math.round(s.y), Math.round(s.age * 10) / 10]),
+    pu: g.pu.flatMap((p) => [p.id, p.k, Math.round(p.x), Math.round(p.y), Math.round(p.age * 10) / 10]),
+    bo: [Math.round(b0.boost * 10) / 10, Math.round(b1.boost * 10) / 10],
+    fk: [b0.fkind, b1.fkind],
     f, e,
   };
 }
@@ -1912,6 +2222,31 @@ function applyHostState(g, st) {
   const sz = Array.isArray(st.sz) ? st.sz : [];
   B0.size = clamp(num(sz[0], B0.size) | 0, 1, 9999); B1.size = clamp(num(sz[1], B1.size) | 0, 1, 9999);
   B0.r = sizeR(B0.size); B1.r = sizeR(B1.size);
+  const fz = Array.isArray(st.fz) ? st.fz : [];
+  B0.frozen = clamp(num(fz[0], 0), 0, FREEZE); B1.frozen = clamp(num(fz[1], 0), 0, FREEZE);
+  const sh = Array.isArray(st.sh) ? st.sh : [];
+  const oldShoes = new Map(g.shoes.map((s) => [s.id, s]));
+  const ns = [];
+  for (let i = 0; i + 3 < sh.length && ns.length < 4; i += 4) {
+    const id = num(sh[i], -1); if (id < 0) continue;
+    const o = oldShoes.get(id) || { id, x: clamp(num(sh[i + 1], 0), 0, W), y: clamp(num(sh[i + 2], 0), 0, H), age: 0 };
+    o.age = clamp(num(sh[i + 3], o.age), 0, 60);
+    ns.push(o);
+  }
+  g.shoes = ns;
+  const bo = Array.isArray(st.bo) ? st.bo : [], fk = Array.isArray(st.fk) ? st.fk : [];
+  B0.boost = clamp(num(bo[0], 0), 0, BOOST_TIME); B1.boost = clamp(num(bo[1], 0), 0, BOOST_TIME);
+  B0.fkind = fk[0] === 1 ? 1 : 0; B1.fkind = fk[1] === 1 ? 1 : 0;
+  const pu = Array.isArray(st.pu) ? st.pu : [];
+  const oldPu = new Map(g.pu.map((p) => [p.id, p]));
+  const np = [];
+  for (let i = 0; i + 4 < pu.length && np.length < 4; i += 5) {
+    const id = num(pu[i], -1); if (id < 0) continue;
+    const o = oldPu.get(id) || { id, k: pu[i + 1] === 1 ? 1 : 0, x: clamp(num(pu[i + 2], 0), 0, W), y: clamp(num(pu[i + 3], 0), 0, H), age: 0 };
+    o.age = clamp(num(pu[i + 4], o.age), 0, 60);
+    np.push(o);
+  }
+  g.pu = np;
   B0.net = { x: clamp(num(b[0], B0.x), 0, W), y: clamp(num(b[1], B0.y), 0, H), vx: clamp(num(b[2], 0), -900, 900), vy: clamp(num(b[3], 0), -900, 900), at: performance.now() };
   const f = Array.isArray(st.f) ? st.f : [];
   const old = new Map(g.foods.map((x) => [x.id, x]));
@@ -1929,7 +2264,7 @@ function applyHostState(g, st) {
     if (id > NET.evSeen) {
       NET.evSeen = id;
       const k = e[i + 1], w = e[i + 2];
-      if ((k === 0 || k === 1) && (w === 0 || w === 1)) onEvent(g, k, w, clamp(num(e[i + 3], 0) | 0, 0, FOODS.length - 1), clamp(num(e[i + 4], 0), 0, W), clamp(num(e[i + 5], 0), 0, H));
+      if ((k === 0 || k === 1 || k === 2 || k === 3 || k === 4) && (w === 0 || w === 1)) onEvent(g, k, w, clamp(num(e[i + 3], 0) | 0, 0, FOODS.length - 1), clamp(num(e[i + 4], 0), 0, W), clamp(num(e[i + 5], 0), 0, H));
     }
   }
   if (ph === 'over' && prev !== 'over') showOver(g);
