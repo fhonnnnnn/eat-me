@@ -1,0 +1,1968 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Eat Me: a pixel-art food fight for two bubbles in costume.">
+<title>Eat Me</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one-screen pixel picnic. Periwinkle page, cream checker tablecloth, notched pixel panels.
+   Every color is taken from the PixelHans palette. Deliberately single-theme (a game world). */
+:root {
+  --ink: #1d1733;
+  --navy: #333351;
+  --navy-m: #465494;
+  --peri: #6e82ec;
+  --peri-l: #9eaefe;
+  --white: #ffffff;
+  --grey-l: #b1c0d2;
+  --grey: #808196;
+  --grey-d: #45475b;
+  --cream: #fee5b9;
+  --peach: #f4b48e;
+  --pink: #ef698e;
+  --pink-d: #b84074;
+  --pink-l: #fea8c0;
+  --lav: #b98dda;
+  --purple: #8a5daf;
+  --purple-d: #6a3d8c;
+  --yellow: #fee660;
+  --orange: #feaf4d;
+  --orange-d: #ea6f36;
+  --green: #29bf4f;
+  --green-d: #26804a;
+  --font-pixel: 'Press Start 2P', ui-monospace, 'Courier New', monospace;
+  --font-body: 'Pixelify Sans', ui-rounded, system-ui, sans-serif;
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+html { height: 100%; box-sizing: border-box; }
+*, *::before, *::after { box-sizing: inherit; }
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background-color: var(--peri);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' shape-rendering='crispEdges'%3E%3Crect x='11' y='11' width='3' height='3' fill='%239eaefe'/%3E%3C/svg%3E");
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+canvas.px, img.px { image-rendering: pixelated; image-rendering: crisp-edges; }
+#app {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 10px 6px;
+  gap: 8px;
+}
+#stage { position: relative; flex: 1; min-height: 0; touch-action: none; }
+#cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+/* pixel frames: four offset copies make a notched 3-4px border, one more makes the drop */
+.pxbox {
+  box-shadow:
+    0 -4px 0 0 var(--ink), 0 4px 0 0 var(--ink), -4px 0 0 0 var(--ink), 4px 0 0 0 var(--ink),
+    0 10px 0 0 var(--navy-m),
+    inset 0 -5px 0 0 var(--grey-l);
+}
+.pxsm {
+  box-shadow:
+    0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink),
+    0 7px 0 0 var(--navy-m),
+    inset 0 -4px 0 0 var(--grey-l);
+}
+
+/* ---------- HUD ---------- */
+#hud {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  max-width: 980px;
+  width: 100%;
+  margin: 3px auto 6px;
+}
+.icon {
+  width: 38px; height: 38px;
+  display: grid; place-items: center;
+  border: 0;
+  background: var(--white);
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0;
+  touch-action: manipulation;
+}
+.icon:active { transform: translateY(3px); }
+.icon svg { width: 20px; height: 20px; shape-rendering: crispEdges; }
+.chip {
+  min-width: 0;
+  display: flex; align-items: center; gap: 8px;
+  background: var(--white);
+  padding: 3px 10px 3px 4px;
+  min-height: 42px;
+}
+.chip.right { flex-direction: row-reverse; padding: 3px 4px 3px 10px; text-align: right; }
+.chip canvas { flex: none; width: 36px; height: 36px; }
+.chip .who { min-width: 0; display: flex; flex-direction: column; gap: 4px; line-height: 1; }
+.chip .nm { font-weight: 700; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip .pips { display: flex; gap: 5px; }
+.chip.right .pips { justify-content: flex-end; }
+.chip .pips i { width: 10px; height: 10px; background: var(--white); box-shadow: 0 0 0 2px var(--ink); margin: 2px; }
+.chip .pips i.on { background: var(--c); }
+.chip .sub { display: flex; align-items: center; gap: 8px; }
+.chip.right .sub { flex-direction: row-reverse; }
+.pct { font: 400 10px var(--font-pixel); color: var(--grey-d); padding: 3px 4px 2px; white-space: nowrap; }
+.pct.eat { background: var(--green); color: var(--white); }
+.pct.run { background: var(--pink-d); color: var(--white); }
+.mid { display: flex; flex-direction: column; align-items: center; gap: 7px; min-width: 120px; }
+.rt {
+  font-family: var(--font-pixel); color: var(--white); font-size: 12px; white-space: nowrap;
+  text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 2px var(--ink), 0 -2px var(--ink), 2px 2px var(--ink), -2px 2px var(--ink), 2px -2px var(--ink), -2px -2px var(--ink), 0 4px var(--ink);
+}
+.bar { width: 100%; height: 10px; background: var(--peri-l); box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink); display: flex; }
+.bar > div { height: 100%; width: 50%; background: var(--pink); box-shadow: 2px 0 0 0 var(--ink); }
+
+/* ---------- screens ---------- */
+.screen {
+  position: absolute; inset: 0;
+  z-index: 5;
+  display: flex; align-items: flex-start; justify-content: center;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 18px 28px;
+  touch-action: pan-y;
+}
+.screen.dim { background: rgba(29, 23, 51, .5); }
+.screen > .inner { margin: auto 0; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.card {
+  width: 100%; max-width: 420px;
+  background: var(--white);
+  padding: 18px 18px 22px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.card h2 { margin: 0; font-family: var(--font-pixel); font-weight: 400; font-size: 17px; line-height: 1.5; text-wrap: balance; }
+.card h3 { margin: 0; font-family: var(--font-pixel); font-weight: 400; font-size: 13px; line-height: 1.5; }
+.muted { color: var(--grey-d); font-weight: 500; margin: 0; }
+.fine { color: var(--grey-d); font-size: 15px; font-weight: 500; margin: 0; line-height: 1.35; }
+.menu-grid { width: 100%; max-width: 900px; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 26px 28px; align-items: start; justify-items: center; }
+
+/* logo */
+.logo {
+  margin: 6px 0 0;
+  font-family: var(--font-pixel); font-weight: 400;
+  font-size: clamp(34px, 9vw, 68px);
+  line-height: 1.1;
+  color: var(--white);
+  text-shadow:
+    4px 0 var(--ink), -4px 0 var(--ink), 0 4px var(--ink), 0 -4px var(--ink),
+    4px 4px var(--ink), -4px 4px var(--ink), 4px -4px var(--ink), -4px -4px var(--ink),
+    0 10px var(--ink), 4px 10px var(--ink), -4px 10px var(--ink);
+  display: flex; flex-wrap: nowrap;
+}
+.logo span { display: inline-block; animation: hop 2.6s steps(1, end) infinite; }
+.logo span.sp { width: .5em; }
+.logo span.m { color: var(--yellow); }
+.logo span:nth-child(2) { animation-delay: .1s; } .logo span:nth-child(3) { animation-delay: .2s; }
+.logo span:nth-child(5) { animation-delay: .4s; } .logo span:nth-child(6) { animation-delay: .5s; } .logo span:nth-child(7) { animation-delay: .6s; }
+@keyframes hop { 0% { transform: translateY(0); } 70% { transform: translateY(-10px); } 76% { transform: translateY(2px); } 82% { transform: translateY(-3px); } 88% { transform: translateY(0); } }
+.tag { margin: 2px 0 0; color: var(--white); font-weight: 600; font-size: 19px; text-align: center; max-width: 36ch; text-wrap: balance;
+  text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 2px var(--ink), 0 -2px var(--ink), 2px 2px var(--ink), -2px 2px var(--ink), 2px -2px var(--ink), -2px -2px var(--ink); }
+
+/* buttons */
+.btn {
+  --bg: var(--yellow); --bd: var(--orange); --hl: #ffffff; --fg: var(--ink);
+  appearance: none; border: 0;
+  font-family: var(--font-pixel); font-weight: 400; font-size: 13px; line-height: 1.4;
+  color: var(--fg);
+  background: var(--bg);
+  box-shadow:
+    0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink),
+    0 7px 0 0 var(--navy-m),
+    inset 0 -5px 0 0 var(--bd), inset 0 3px 0 0 var(--hl);
+  padding: 15px 14px 17px;
+  cursor: pointer;
+  touch-action: manipulation;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  width: 100%;
+  text-align: center;
+}
+.btn:active { transform: translateY(4px); box-shadow: 0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink), inset 0 -2px 0 0 var(--bd); }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.btn.pink { --bg: var(--pink); --bd: var(--pink-d); --hl: var(--pink-l); --fg: var(--white); text-shadow: 2px 2px 0 var(--pink-d); }
+.btn.purple { --bg: var(--purple); --bd: var(--purple-d); --hl: var(--lav); --fg: var(--white); text-shadow: 2px 2px 0 var(--purple-d); }
+.btn.green { --bg: var(--green); --bd: var(--green-d); --hl: #8bfea8; --fg: var(--white); text-shadow: 2px 2px 0 var(--green-d); }
+.btn.ghost { --bg: var(--white); --bd: var(--grey-l); --hl: var(--white); font-size: 12px; padding: 12px 12px 14px; }
+.btn.small { width: auto; flex: none; font-size: 11px; padding: 11px 12px 13px; }
+.row { display: flex; gap: 14px; }
+.row > * { flex: 1; }
+button:focus-visible, input:focus-visible { outline: 3px dashed var(--pink-d); outline-offset: 6px; }
+
+.field { display: flex; flex-direction: column; gap: 10px; }
+.label { font-family: var(--font-pixel); font-size: 10px; letter-spacing: .04em; color: var(--grey-d); margin: 0; }
+input[type=text] {
+  font: 600 20px var(--font-body);
+  color: var(--ink);
+  background: var(--cream);
+  border: 0;
+  box-shadow: 0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink), inset 0 3px 0 0 var(--peach);
+  padding: 9px 12px 8px;
+  width: 100%;
+  min-width: 0;
+  -webkit-user-select: text; user-select: text;
+}
+input[type=text]::placeholder { color: var(--grey); }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.seg button {
+  appearance: none; border: 0; background: var(--white); color: var(--ink);
+  font: 700 17px var(--font-body); padding: 7px 4px 8px; cursor: pointer; touch-action: manipulation;
+  box-shadow: 0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink), inset 0 -3px 0 0 var(--grey-l);
+}
+.seg button[aria-checked=true] { background: var(--pink); color: var(--white); box-shadow: 0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink), inset 0 -3px 0 0 var(--pink-d); }
+
+/* costume picker */
+.costumes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.costumes button {
+  appearance: none; border: 0; padding: 4px 0 6px; cursor: pointer; touch-action: manipulation;
+  background: var(--cream);
+  box-shadow: 0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink), inset 0 -3px 0 0 var(--peach);
+  display: grid; place-items: center;
+}
+.costumes button canvas { width: 100%; max-width: 54px; height: auto; aspect-ratio: 1; }
+.costumes button[aria-checked=true] { background: var(--yellow); box-shadow: 0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink), inset 0 -3px 0 0 var(--orange); transform: translateY(-3px); }
+.costume-name { font-weight: 700; color: var(--ink); }
+
+/* how to play */
+.how ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.how li { font-weight: 500; line-height: 1.3; }
+.legend { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 12px; align-items: center; background: var(--cream); padding: 10px 12px; box-shadow: 0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink); }
+.legend .em { display: flex; gap: 4px; align-items: center; }
+.legend img { width: 28px; height: auto; }
+.legend .lbl { font-weight: 700; }
+.legend .gain { font-family: var(--font-pixel); font-size: 9px; color: var(--pink-d); white-space: nowrap; }
+.keys { display: inline-flex; gap: 4px; vertical-align: 1px; }
+kbd { font: 400 9px var(--font-pixel); background: var(--white); padding: 3px 4px 4px; box-shadow: 0 -2px 0 0 var(--ink), 0 2px 0 0 var(--ink), -2px 0 0 0 var(--ink), 2px 0 0 0 var(--ink), inset 0 -2px 0 0 var(--grey-l); margin: 0 2px; }
+
+/* online */
+.codeBig { font-family: var(--font-pixel); font-size: 40px; letter-spacing: .12em; text-align: center; color: var(--yellow); padding: 6px 0 10px .12em;
+  text-shadow: 3px 0 var(--ink), -3px 0 var(--ink), 0 3px var(--ink), 0 -3px var(--ink), 3px 3px var(--ink), -3px 3px var(--ink), 3px -3px var(--ink), -3px -3px var(--ink), 0 7px var(--ink); }
+.games { display: flex; flex-direction: column; gap: 14px; }
+.game-row { display: flex; align-items: center; gap: 10px; background: var(--cream); padding: 6px 8px 6px 6px; box-shadow: 0 -3px 0 0 var(--ink), 0 3px 0 0 var(--ink), -3px 0 0 0 var(--ink), 3px 0 0 0 var(--ink); }
+.game-row canvas { width: 34px; height: 34px; flex: none; }
+.game-row .g-nm { flex: 1; min-width: 0; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.game-row .g-code { font-family: var(--font-pixel); font-size: 11px; color: var(--grey-d); }
+.empty { font-weight: 500; color: var(--grey-d); background: var(--cream); padding: 10px 12px; text-align: center; margin: 0; }
+.or { display: flex; align-items: center; gap: 10px; font-family: var(--font-pixel); font-size: 9px; color: var(--grey-d); }
+.or::before, .or::after { content: ""; flex: 1; height: 3px; background: var(--grey-l); }
+#codeInput { text-transform: uppercase; letter-spacing: .2em; font-family: var(--font-pixel); font-weight: 400; font-size: 16px; text-align: center; padding-top: 12px; }
+.linkbox { display: flex; gap: 14px; align-items: center; }
+.linkbox input { font-size: 15px !important; }
+.waiting { display: flex; align-items: center; justify-content: center; gap: 10px; font-weight: 700; }
+.wob { width: 12px; height: 12px; background: var(--pink); box-shadow: 0 0 0 3px var(--ink); animation: wob 1s steps(2, jump-none) infinite; }
+.wob:nth-child(2) { background: var(--peri); animation-delay: .25s; }
+@keyframes wob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.status-pill { align-self: flex-start; font-family: var(--font-pixel); font-size: 9px; padding: 5px 8px 4px; background: var(--grey-l); color: var(--ink); }
+.status-pill.ok { background: #8bfea8; }
+.status-pill.bad { background: var(--pink-l); }
+
+/* over */
+.winner { align-self: center; width: 160px; height: 160px; animation: boing 1.4s steps(1, end) infinite; }
+@keyframes boing { 0% { transform: translateY(0) scale(1, 1); } 30% { transform: translateY(-12px) scale(.94, 1.06); } 50% { transform: translateY(0) scale(1.08, .92); } 62% { transform: translateY(-4px) scale(1, 1); } 74% { transform: translateY(0); } }
+.center { text-align: center; align-items: stretch; }
+.score-line { font-family: var(--font-pixel); font-size: 24px; display: flex; justify-content: center; align-items: center; gap: 14px; }
+.score-line .s0 { color: var(--pink); }
+.score-line .s1 { color: var(--peri); }
+
+#toast {
+  position: absolute; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  z-index: 20; background: var(--ink); color: var(--white); font-weight: 600; padding: 10px 16px;
+  max-width: calc(100% - 40px); text-align: center; pointer-events: none;
+}
+.sound-float { position: absolute; top: 14px; right: max(20px, env(safe-area-inset-right, 0px)); z-index: 6; }
+
+@media (max-width: 560px) {
+  #hud { gap: 9px; }
+  .icon { width: 32px; height: 32px; }
+  .icon svg { width: 16px; height: 16px; }
+  .chip { gap: 5px; padding: 2px 6px 2px 2px; min-height: 36px; }
+  .chip.right { padding: 2px 2px 2px 6px; }
+  .chip canvas { width: 28px; height: 28px; }
+  .chip .nm { font-size: 14px; }
+  .chip .pips i { width: 7px; height: 7px; }
+  .mid { min-width: 70px; gap: 6px; }
+  .rt { font-size: 9px; }
+  .bar { height: 8px; }
+  #menu { padding-top: 64px; }
+  .chip .sub { gap: 5px; }
+  .pct { font-size: 8px; padding: 2px 3px 1px; }
+  .btn { font-size: 11px; }
+  .costumes { grid-template-columns: repeat(3, 1fr); }
+  .codeBig { font-size: 32px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo span, .winner, .wob { animation: none; }
+}
+</style>
+<style>:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); } img { max-width: 100%; }</style>
+</head>
+<body>
+<div id="app">
+  <header id="hud" hidden>
+    <button id="btnPause" class="icon pxsm" aria-label="Pause">
+      <svg viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><rect x="2" y="2" width="2" height="6"/><rect x="6" y="2" width="2" height="6"/></svg>
+    </button>
+    <div class="chip pxsm" style="--c: var(--pink)">
+      <canvas id="pt0" class="px" width="22" height="22"></canvas>
+      <span class="who"><span class="nm" id="nm0">Pink</span><span class="sub"><span class="pips" id="pips0"><i></i><i></i></span><b class="pct" id="pc0" title="Size compared with your rival. 115% or more can eat.">100%</b></span></span>
+    </div>
+    <div class="mid">
+      <div class="rt"><span id="hudRound">Round 1</span> <span id="hudTime">1:00</span></div>
+      <div class="bar" title="Who is bigger"><div id="bar0"></div></div>
+    </div>
+    <div class="chip right pxsm" style="--c: var(--peri)">
+      <canvas id="pt1" class="px" width="22" height="22"></canvas>
+      <span class="who"><span class="nm" id="nm1">Blue</span><span class="sub"><span class="pips" id="pips1"><i></i><i></i></span><b class="pct" id="pc1" title="Size compared with your rival. 115% or more can eat.">100%</b></span></span>
+    </div>
+    <button id="btnSound" class="icon pxsm" aria-label="Sound on">
+      <svg class="snd-on" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><rect x="1" y="4" width="2" height="2"/><rect x="3" y="3" width="1" height="4"/><rect x="4" y="2" width="1" height="6"/><rect x="6" y="4" width="1" height="2"/><rect x="7" y="2" width="1" height="1"/><rect x="8" y="3" width="1" height="4"/><rect x="7" y="7" width="1" height="1"/></svg>
+      <svg class="snd-off" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true" hidden><rect x="1" y="4" width="2" height="2"/><rect x="3" y="3" width="1" height="4"/><rect x="4" y="2" width="1" height="6"/><rect x="6" y="3" width="1" height="1"/><rect x="7" y="4" width="1" height="2"/><rect x="8" y="3" width="1" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="8" y="6" width="1" height="1"/></svg>
+    </button>
+  </header>
+
+  <div id="stage"><canvas id="cv"></canvas></div>
+
+  <!-- MENU -->
+  <section id="menu" class="screen dim">
+    <button id="btnSound2" class="icon pxsm sound-float" aria-label="Sound on">
+      <svg class="snd-on" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><rect x="1" y="4" width="2" height="2"/><rect x="3" y="3" width="1" height="4"/><rect x="4" y="2" width="1" height="6"/><rect x="6" y="4" width="1" height="2"/><rect x="7" y="2" width="1" height="1"/><rect x="8" y="3" width="1" height="4"/><rect x="7" y="7" width="1" height="1"/></svg>
+      <svg class="snd-off" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true" hidden><rect x="1" y="4" width="2" height="2"/><rect x="3" y="3" width="1" height="4"/><rect x="4" y="2" width="1" height="6"/><rect x="6" y="3" width="1" height="1"/><rect x="7" y="4" width="1" height="2"/><rect x="8" y="3" width="1" height="1"/><rect x="6" y="6" width="1" height="1"/><rect x="8" y="6" width="1" height="1"/></svg>
+    </button>
+    <div class="inner">
+      <h1 class="logo" aria-label="Eat Me!"><span>E</span><span>A</span><span>T</span><span class="sp"></span><span class="m">M</span><span class="m">E</span><span class="m">!</span></h1>
+      <p class="tag">Two hungry bubbles, one picnic table. Snack your way bigger, then gobble your rival.</p>
+      <div class="menu-grid">
+        <div class="card pxbox">
+          <div class="field">
+            <label class="label" for="nameInput">YOUR NAME</label>
+            <input type="text" id="nameInput" maxlength="12" placeholder="Bubble" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <p class="label" id="costumeLabel">COSTUME · <span class="costume-name" id="costumeName">Fox</span></p>
+            <div class="costumes" id="costumes" role="radiogroup" aria-labelledby="costumeLabel"></div>
+          </div>
+          <button id="btnSolo" class="btn pink">PLAY VS COMPUTER</button>
+          <div class="seg" role="radiogroup" aria-label="Computer skill" id="skill">
+            <button role="radio" aria-checked="false" data-v="easy">Easy</button>
+            <button role="radio" aria-checked="true" data-v="normal">Normal</button>
+            <button role="radio" aria-checked="false" data-v="hard">Hard</button>
+          </div>
+          <button id="btnOnline" class="btn purple">PLAY A FRIEND ONLINE</button>
+          <button id="btnLocal" class="btn">2 PLAYERS, ONE DEVICE</button>
+        </div>
+        <div class="card how pxbox">
+          <h3>HOW TO PLAY</h3>
+          <div class="legend" id="legend" aria-label="Food values">
+            <span class="em" data-f="0,1,2,3"></span><span class="lbl">Fruit</span><span class="gain">NIBBLE</span>
+            <span class="em" data-f="4,5,6,7"></span><span class="lbl">Ice cream &amp; snacks</span><span class="gain">SNACK</span>
+            <span class="em" data-f="8"></span><span class="lbl">Fries</span><span class="gain">BIG BITE</span>
+            <span class="em" data-f="9"></span><span class="lbl">Fried chicken</span><span class="gain">FEAST</span>
+          </div>
+          <ul>
+            <li>Eat food to grow. Only the <b>bigger</b> bubble can eat the other one, so if your rival is bigger, run.</li>
+            <li>The <b>%</b> over each bubble is its size compared with its rival. At <b>115%</b> it turns green and can eat. Under <b>87%</b> it turns red: run!</li>
+            <li>A round ends when someone gets eaten. After 60 seconds the bigger bubble takes the round. Win 2 of 3 rounds to win.</li>
+            <li>Move with <span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span> or arrow keys. On a phone, drag anywhere to steer.</li>
+            <li class="fine">On iPhone, switch off Silent mode to hear the munching.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ONLINE -->
+  <section id="online" class="screen dim" hidden>
+    <div class="inner">
+      <div class="card pxbox">
+        <h2>PLAY A FRIEND ONLINE</h2>
+        <span id="netPill" class="status-pill">CONNECTING…</span>
+        <div id="onIdle" style="display:flex;flex-direction:column;gap:16px">
+          <button id="btnHost" class="btn pink">CREATE A GAME</button>
+          <div class="or">OR JOIN A FRIEND</div>
+          <div id="openGames" class="games"><p class="empty">No open games right now.</p></div>
+          <form id="joinForm" class="linkbox" autocomplete="off">
+            <input type="text" id="codeInput" maxlength="4" placeholder="CODE" aria-label="Game code" spellcheck="false">
+            <button type="submit" class="btn purple small">JOIN</button>
+          </form>
+        </div>
+        <div id="onHost" hidden style="display:flex;flex-direction:column;gap:14px">
+          <p class="label">YOUR GAME CODE</p>
+          <div class="codeBig" id="codeBig">----</div>
+          <div class="linkbox">
+            <input type="text" id="inviteLink" readonly aria-label="Invite link">
+            <button id="btnCopy" class="btn small">COPY</button>
+          </div>
+          <div class="waiting"><span class="wob"></span><span class="wob"></span><span>Waiting for your friend…</span></div>
+          <p class="fine">Send your friend the link, or tell them the code. They can also see your game in their list.</p>
+        </div>
+        <div id="onJoin" hidden style="display:flex;flex-direction:column;gap:12px">
+          <div class="waiting"><span class="wob"></span><span class="wob"></span><span id="joinMsg">Joining…</span></div>
+        </div>
+        <p class="fine" id="netNote">Your friend needs to be signed in to Claude and invited to this game from the Share menu. Anyone who opens a public link can still play the computer.</p>
+        <button id="btnOnBack" class="btn ghost">BACK</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- PAUSE -->
+  <section id="pause" class="screen dim" hidden>
+    <div class="inner">
+      <div class="card center pxbox">
+        <h2 id="pauseTitle">PAUSED</h2>
+        <button id="btnResume" class="btn pink">KEEP PLAYING</button>
+        <button id="btnQuit" class="btn ghost">QUIT TO MENU</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- MATCH OVER -->
+  <section id="over" class="screen dim" hidden>
+    <div class="inner">
+      <div class="card center pxbox">
+        <canvas id="winCv" class="px winner" width="60" height="60"></canvas>
+        <h2 id="overTitle">PINK WINS!</h2>
+        <div class="score-line"><span class="s0" id="ov0">2</span><span>-</span><span class="s1" id="ov1">1</span></div>
+        <p class="muted" id="overSub"></p>
+        <button id="btnRematch" class="btn pink">REMATCH</button>
+        <button id="btnMenu" class="btn ghost">MENU</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- NOTICE -->
+  <section id="notice" class="screen dim" hidden>
+    <div class="inner">
+      <div class="card center pxbox">
+        <h2 id="noticeTitle">HEADS UP</h2>
+        <p class="muted" id="noticeText"></p>
+        <button id="btnNoticeOk" class="btn">OK</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="toast" class="pxsm" hidden></div>
+</div>
+
+<script>
+(() => {
+'use strict';
+/* ================= constants ================= */
+const ART_URL = 'https://claude.ai/artifact/B9WKaEMegSrXny3ocuSMfL';
+const W = 880, H = 528;
+const K = W / 480;                   // world units per art pixel
+const PWL = W / K, PHL = H / K;      // 480 x 288 art pixels
+const START_R = 26, MAX_R = 100;
+const ROUND_TIME = 60, WIN_AT = 2;
+const EAT_RATIO = 1.15;
+const MAX_FOOD = 22, FIRST_FOOD = 12, FOOD_EVERY = 0.55;
+const NSB = 22;
+const TAU = Math.PI * 2;
+const STICK_R = 56;
+
+// PixelHans palette — the only colors the game uses
+const PAL = {
+  k: '#1d1733', D: '#45475b', g: '#808196', l: '#b1c0d2', w: '#ffffff', p: '#9eaefe', B: '#6e82ec',
+  n: '#465494', N: '#333351', u: '#6a3d8c', v: '#8a5daf', L: '#b98dda', m: '#b84074', P: '#ef698e',
+  q: '#fea8c0', r: '#f05e5d', M: '#77273e', b: '#a54849', R: '#d97779', e: '#f4b48e', c: '#fee5b9',
+  O: '#ea6f36', o: '#feaf4d', y: '#fee660', G: '#1d503f', h: '#26804a', H: '#29bf4f', i: '#8bfea8',
+};
+const INK = PAL.k;
+const CI = {}, CRGB = [null];
+Object.keys(PAL).forEach((key, i) => {
+  CI[key] = i + 1;
+  const hx = PAL[key];
+  CRGB[i + 1] = [parseInt(hx.slice(1, 3), 16), parseInt(hx.slice(3, 5), 16), parseInt(hx.slice(5, 7), 16)];
+});
+
+// the jelly that peeks out of each costume
+const PL = [
+  { main: PAL.P, light: PAL.q, dark: PAL.m, label: 'Pink', jm: 'P', jl: 'q', jd: 'm' },
+  { main: PAL.B, light: PAL.p, dark: PAL.n, label: 'Blue', jm: 'B', jl: 'p', jd: 'n' },
+];
+const COSTUMES = [
+  { id: 'cow',     name: 'Cow',     body: 'b', shade: 'M', light: 'R', feet: 'M' },
+  { id: 'shark',   name: 'Shark',   body: 'v', shade: 'u', light: 'L', feet: 'u' },
+  { id: 'pig',     name: 'Pig',     body: 'q', shade: 'P', light: 'w', feet: 'P' },
+  { id: 'fox',     name: 'Fox',     body: 'o', shade: 'O', light: 'y', feet: 'O' },
+  { id: 'penguin', name: 'Penguin', body: 'n', shade: 'N', light: 'B', feet: 'o' },
+  { id: 'raccoon', name: 'Raccoon', body: 'g', shade: 'D', light: 'l', feet: 'D' },
+];
+
+// fruit = nibble, ice cream & snacks = snack, fries = big bite, fried chicken = feast
+const FOODS = [
+  { name: 'Strawberry', r: 11, v: 47, w: 5, c: 'r', px: [
+    '....H.H....', '...hHHHh...', '.rrhhHhhrr.', 'rqqrrhrrrrr', 'rqrryrrryrb', 'rrrrrrrrrrb',
+    'ryrrrryrrbb', '.rrrrrrrrb.', '.rrryrrrbb.', '..rrrrrbb..', '...rrrbb...', '....rbb....'] },
+  { name: 'Watermelon', r: 12, v: 51, w: 3, c: 'r', px: [
+    'rrrrrrrrrrrrr', 'rqrkrrrrkrrrr', 'wrrrrrkrrrrrw', 'hwrrkrrrrrkwh', '.hwwrrrrrwwh.',
+    '.Hhhwwwwwhhh.', '..HHhhhhhhh..', '....HHhhh....'] },
+  { name: 'Grapes', r: 11, v: 47, w: 3, c: 'v', px: [
+    '....Gh.....', '.....hHH...', '..LvvLvvu..', '.LvvuvvuLv.', '.vvuLvvuvvu', '..uLvvuLvu.',
+    '..LvvuvvuL.', '...vuLvvu..', '....Lvvu...', '.....vu....'] },
+  { name: 'Banana', r: 11, v: 47, w: 3, c: 'y', px: [
+    '..........MM', '.........yyM', '........yyo.', '.......yyyo.', '......yyyoo.', 'M...yyyyyo..',
+    'Myyyyyyyoo..', '.oyyyyyoo...', '..ooooo.....'] },
+  { name: 'Ice cream', r: 13, v: 77, w: 4, c: 'q', px: [
+    '...qqq...', '..qwqqq..', '.qwqqqqq.', '.qqqqqqP.', 'PqqqqqqPP', 'PPqPqqPPP', '.ooooooo.',
+    '.oOoOoOo.', '..oOoOo..', '..ooOoo..', '...oOo...', '...ooo...', '....o....'] },
+  { name: 'Cookie', r: 12, v: 68, w: 3, c: 'e', px: [
+    '...eeeee...', '..eceeeee..', '.eceeMeeeR.', 'eeeeeeeeeeR', 'eeMeeeeMeeR', 'eeeeeeeeeeR',
+    'eeeeMeeeeRR', '.eMeeeeeMR.', '.eeeeeeeRR.', '..ReeeeRR..', '...RRRRR...'] },
+  { name: 'Donut', r: 12, v: 72, w: 3, c: 'q', px: [
+    '...qqqqqq...', '..qwqyqqqq..', '.qqqqqqBqqq.', '.qHqq..qqyq.', 'qqqq....qqqq', 'qyqo....oqHq',
+    'oqqo....oqqo', 'oqBqo..oqqqo', '.oqqqqqyqqo.', '.ooOqqqqoOO.', '..oooooooO..', '...OOOOOO...'] },
+  { name: 'Popcorn', r: 12, v: 68, w: 2, c: 'c', px: [
+    '...cyc.....', '.cyccccyc..', 'cccyccyccyc', 'ycccyccccyc', 'rwrwrwrwrwr', 'rwrwrwrwrwr',
+    '.rwrwrwrwr.', '.rwrwrwrwr.', '.rwrwrwrwr.', '..rwrwrwr..', '..rwrwrwr..'] },
+  { name: 'Fries', r: 14, v: 106, w: 3, c: 'y', px: [
+    '.y..y..y...', '.yy.yo.yo.y', '.yo.yo.yoyo', 'yyoyyoyyoyo', 'rrrrrrrrrrr', 'rqrrrrrrrrb',
+    '.rrrryrrrb.', '.rrryyyrrb.', '.rrrryrrrb.', '..rrrrrrb..', '..rrrrrbb..'] },
+  { name: 'Fried chicken', r: 15, v: 149, w: 2, c: 'o', px: [
+    '....oooo.....', '..ooyyooO....', '.oyyoooOOO...', '.oyoooooOO...', 'ooooOoooOO...', 'oooooooOOO...',
+    '.oooOooOO....', '..OOOOOOww...', '....OOO.lww..', '.........lww.', '........wwlww', '.........ww..'] },
+];
+const FOOD_W = FOODS.reduce((a, f) => a + f.w, 0);
+const SKILL = {
+  easy:   { speed: 0.76, react: 0.45, noise: 0.55, chase: 270 },
+  normal: { speed: 0.9,  react: 0.22, noise: 0.25, chase: 390 },
+  hard:   { speed: 1.0,  react: 0.1,  noise: 0.08, chase: 540 },
+};
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const coarse = matchMedia('(pointer: coarse)').matches;
+
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+const num = (v, d) => (typeof v === 'number' && isFinite(v) ? v : d);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('eatme.' + k); return v == null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('eatme.' + k, v); } catch (e) {} },
+};
+function cleanName(v, fb) {
+  const s = Array.from(String(v == null ? '' : v)).filter((ch) => { const c = ch.codePointAt(0); return !(c < 32 || (c >= 127 && c <= 159) || c === 173 || (c >= 0x200b && c <= 0x200f) || (c >= 0x2028 && c <= 0x202e) || (c >= 0x2060 && c <= 0x2069) || c === 0xfeff); }).join('').trim().slice(0, 12);
+  return s || fb;
+}
+const cosIdx = (v, d) => (Number.isInteger(v) && v >= 0 && v < COSTUMES.length ? v : d);
+const easeOutBack = (t) => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2); };
+
+/* ================= sound ================= */
+const SFX = {
+  ctx: null, out: null, on: store.get('sound', '1') !== '0', noiseBuf: null, lastBoing: 0,
+  init() {
+    try {
+      if (!this.ctx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return;
+        const c = this.ctx = new AC();
+        this.out = c.createGain();
+        this.out.gain.value = this.on ? 0.8 : 0;
+        const comp = c.createDynamicsCompressor();
+        this.out.connect(comp); comp.connect(c.destination);
+        const len = Math.floor(c.sampleRate * 0.5);
+        const buf = c.createBuffer(1, len, c.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+        this.noiseBuf = buf;
+        const s = c.createBufferSource(); s.buffer = c.createBuffer(1, 1, 22050); s.connect(c.destination); s.start(0);
+      }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    } catch (e) {}
+  },
+  setOn(v) {
+    this.on = v; store.set('sound', v ? '1' : '0');
+    if (this.out) this.out.gain.setTargetAtTime(v ? 0.8 : 0, this.ctx.currentTime, 0.02);
+  },
+  tone({ type = 'sine', f0, f1 = f0, dur = 0.15, vol = 0.3, delay = 0, vib = 0, vibRate = 0, attack = 0.008 }) {
+    const c = this.ctx; if (!c || !this.on) return;
+    try {
+      const t = c.currentTime + delay;
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(f0, t);
+      if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur * 0.9);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(vol, t + attack);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      if (vib) {
+        const l = c.createOscillator(), lg = c.createGain();
+        l.frequency.value = vibRate; lg.gain.value = vib;
+        l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(t + dur + 0.05);
+      }
+      o.connect(g); g.connect(this.out);
+      o.start(t); o.stop(t + dur + 0.05);
+    } catch (e) {}
+  },
+  noise({ dur = 0.1, vol = 0.2, freq = 1200, q = 1, delay = 0, type = 'bandpass' }) {
+    const c = this.ctx; if (!c || !this.on || !this.noiseBuf) return;
+    try {
+      const t = c.currentTime + delay;
+      const s = c.createBufferSource(); s.buffer = this.noiseBuf;
+      const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+      const g = c.createGain();
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      s.connect(f); f.connect(g); g.connect(this.out);
+      s.start(t, Math.random() * 0.3); s.stop(t + dur + 0.02);
+    } catch (e) {}
+  },
+  eat(ft) {
+    const base = [1040, 980, 1100, 920, 760, 700, 820, 880, 600, 480][ft] || 900;
+    const j = 0.94 + Math.random() * 0.12;
+    this.tone({ type: 'sine', f0: base * 0.42 * j, f1: base * j, dur: 0.11, vol: 0.32 });
+    this.tone({ type: 'sine', f0: base * 0.9 * j, f1: base * 1.6 * j, dur: 0.09, vol: 0.13, delay: 0.055 });
+    if (ft >= 8) this.noise({ dur: 0.09, vol: 0.2, freq: 2600, q: 0.8, delay: 0.01 });
+  },
+  gulp() {
+    this.tone({ type: 'sine', f0: 520, f1: 55, dur: 0.55, vol: 0.55, vib: 45, vibRate: 17 });
+    this.tone({ type: 'triangle', f0: 260, f1: 45, dur: 0.45, vol: 0.25, delay: 0.04 });
+    this.noise({ dur: 0.3, vol: 0.28, freq: 480, q: 0.7, type: 'lowpass' });
+    [523, 659, 784, 1047].forEach((f, i) => this.tone({ type: 'square', f0: f, dur: 0.15, vol: 0.06, delay: 0.5 + i * 0.08 }));
+  },
+  boing() {
+    const now = performance.now(); if (now - this.lastBoing < 240) return; this.lastBoing = now;
+    this.tone({ type: 'sine', f0: 200, f1: 330, dur: 0.24, vol: 0.24, vib: 34, vibRate: 22 });
+  },
+  beep(go) {
+    this.tone({ type: 'square', f0: go ? 988 : 587, dur: go ? 0.3 : 0.12, vol: 0.07 });
+    this.tone({ type: 'sine', f0: go ? 1976 : 1174, dur: go ? 0.22 : 0.08, vol: 0.05 });
+  },
+  whistle() { this.tone({ type: 'sine', f0: 1500, f1: 1050, dur: 0.45, vol: 0.12, vib: 70, vibRate: 32 }); },
+  win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone({ type: 'square', f0: f, dur: i === 5 ? 0.45 : 0.13, vol: 0.07, delay: i * 0.11 })); },
+  lose() { [392, 349, 311, 262].forEach((f, i) => this.tone({ type: 'triangle', f0: f, f1: f * 0.96, dur: 0.24, vol: 0.16, delay: i * 0.18 })); },
+};
+
+/* ================= view / pixel art ================= */
+const cv = $('#cv'), ctx = cv.getContext('2d'), stage = $('#stage'), hudEl = $('#hud');
+const pix = document.createElement('canvas'), pctx = pix.getContext('2d');
+const view = { cw: 300, ch: 300, dpr: 1, u: 1, ox: 0, oy: 0, rot: false, aw: 0, ah: 0, pw: PWL, ph: PHL, bg: null };
+
+// sprite from a grid of palette letters, outlined in ink automatically
+function makeSprite(rows) {
+  const h = rows.length, w = Math.max(...rows.map((r) => r.length));
+  const S = { w: w + 2, h: h + 2 };
+  const grid = new Uint8Array(S.w * S.h);
+  rows.forEach((row, y) => { for (let x = 0; x < row.length; x++) { const c = CI[row[x]]; if (c) grid[(y + 1) * S.w + x + 1] = c; } });
+  const out = grid.slice();
+  for (let y = 0; y < S.h; y++) for (let x = 0; x < S.w; x++) {
+    const i = y * S.w + x; if (grid[i]) continue;
+    if ((x > 0 && grid[i - 1]) || (x < S.w - 1 && grid[i + 1]) || (y > 0 && grid[i - S.w]) || (y < S.h - 1 && grid[i + S.w])) out[i] = CI.k;
+  }
+  const c = document.createElement('canvas'); c.width = S.w; c.height = S.h;
+  const g = c.getContext('2d'), img = g.createImageData(S.w, S.h);
+  for (let i = 0; i < out.length; i++) { const rgb = CRGB[out[i]]; if (!rgb) continue; img.data[i * 4] = rgb[0]; img.data[i * 4 + 1] = rgb[1]; img.data[i * 4 + 2] = rgb[2]; img.data[i * 4 + 3] = 255; }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+const SPR = FOODS.map((f) => makeSprite(f.px));
+const SWEAT = makeSprite(['p.', 'pp', 'pw']);
+const HEART = ['PP.PP', 'PPPPP', '.PPP.', '..P..'];
+
+function inTri(px, py, ax, ay, bx, by, cx, cy) {
+  const d1 = (px - bx) * (ay - by) - (ax - bx) * (py - by);
+  const d2 = (px - cx) * (by - cy) - (bx - cx) * (py - cy);
+  const d3 = (px - ax) * (cy - ay) - (cx - ax) * (py - ay);
+  return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+}
+
+/* A bubble in a costume, painted pixel by pixel.
+   o: { cos, pl, R (art px), rad(theta) -> radius, kx, ky, face (+1 right / -1 left), buf } */
+function paintChar(o) {
+  const R = Math.max(4, o.R);
+  const C = COSTUMES[o.cos] || COSTUMES[0], J = PL[o.pl] || PL[0];
+  let S = Math.ceil(R * 3.8) + 8; if (S % 2) S++;
+  const cx = S / 2, cy = S / 2 + Math.round(R * 0.12);
+  const N = S * S;
+  let buf = o.buf;
+  if (!buf || buf.S !== S) {
+    const canvas = (buf && buf.canvas) || document.createElement('canvas');
+    canvas.width = S; canvas.height = S;
+    buf = { S, col: new Uint8Array(N), lay: new Uint8Array(N), tmp: new Uint8Array(N), canvas, g: canvas.getContext('2d'), img: null };
+    buf.img = buf.g.createImageData(S, S);
+  }
+  buf.cx = cx; buf.cy = cy;
+  const col = buf.col, lay = buf.lay;
+  col.fill(0); lay.fill(0);
+  const kx = o.kx || 1, ky = o.ky || 1, f = o.face || 1;
+  const rad = o.rad || (() => R);
+  const X = (v) => v * R * kx, Y = (v) => v * R * ky, FX = (v) => v * R * kx * f;
+  const c = (k) => CI[k];
+  // mask: 0 anywhere, 1 only on the body, 2 only inside the window
+  function put(x0, y0, x1, y1, test, color, layer, mask) {
+    x0 = Math.max(0, Math.floor(x0)); y0 = Math.max(0, Math.floor(y0));
+    x1 = Math.min(S - 1, Math.ceil(x1)); y1 = Math.min(S - 1, Math.ceil(y1));
+    for (let yy = y0; yy <= y1; yy++) {
+      for (let xx = x0; xx <= x1; xx++) {
+        const dx = xx + 0.5 - cx, dy = yy + 0.5 - cy;
+        if (!test(dx, dy)) continue;
+        const i = yy * S + xx;
+        if (mask === 1 && lay[i] < 2) continue;
+        if (mask === 2 && (lay[i] !== 3 || col[i] === CI.k)) continue;
+        const v = typeof color === 'function' ? color(dx, dy) : color;
+        if (!v) continue;
+        col[i] = v; lay[i] = layer;
+      }
+    }
+  }
+  const E = (ex, ey, rx, ry, color, layer, mask) => {
+    rx = Math.max(0.75, rx); ry = Math.max(0.65, ry);
+    put(cx + ex - rx - 1, cy + ey - ry - 1, cx + ex + rx + 1, cy + ey + ry + 1,
+      (dx, dy) => { const a = (dx - ex) / rx, b = (dy - ey) / ry; return a * a + b * b <= 1; }, color, layer, mask);
+  };
+  const T = (ax, ay, bx, by, qx, qy, color, layer, mask) =>
+    put(cx + Math.min(ax, bx, qx) - 1, cy + Math.min(ay, by, qy) - 1, cx + Math.max(ax, bx, qx) + 1, cy + Math.max(ay, by, qy) + 1,
+      (dx, dy) => inTri(dx, dy, ax, ay, bx, by, qx, qy), color, layer, mask);
+
+  /* ---- back layer: feet, ears, horns, tails ---- */
+  E(X(-0.36), Y(0.9), R * 0.21 * kx, R * 0.15 * ky, c(C.feet), 1);
+  E(X(0.36), Y(0.9), R * 0.21 * kx, R * 0.15 * ky, c(C.feet), 1);
+  switch (C.id) {
+    case 'cow':
+      for (const s of [-1, 1]) {
+        T(X(0.4 * s), Y(-0.74), X(0.72 * s), Y(-0.5), X(1.06 * s), Y(-1.1), c('w'), 1);
+        T(X(0.4 * s), Y(-0.74), X(0.72 * s), Y(-0.5), X(0.75 * s), Y(-0.75), c('l'), 1);
+        E(X(0.98 * s), Y(-0.3), R * 0.2 * kx, R * 0.11 * ky, c('b'), 1);
+      }
+      E(FX(-1.0), Y(0.36), R * 0.16 * kx, R * 0.05 * ky, c('b'), 1);
+      E(FX(-1.16), Y(0.32), R * 0.12 * kx, R * 0.12 * ky, c('M'), 1);
+      break;
+    case 'shark':
+      for (const s of [-1, 1]) T(X(0.88 * s), Y(0.0), X(0.76 * s), Y(0.42), X(1.3 * s), Y(0.46), c('u'), 1);
+      T(FX(-0.9), Y(0.55), FX(-1.42), Y(0.18), FX(-1.36), Y(0.86), c('v'), 1);
+      break;
+    case 'pig':
+      for (const s of [-1, 1]) T(X(0.62 * s), Y(-0.6), X(0.2 * s), Y(-0.88), X(0.8 * s), Y(-1.1), c('P'), 1);
+      E(FX(-1.06), Y(0.3), R * 0.13 * kx, R * 0.13 * ky, c('P'), 1);
+      break;
+    case 'fox':
+      for (const s of [-1, 1]) {
+        T(X(0.66 * s), Y(-0.48), X(0.18 * s), Y(-0.86), X(0.66 * s), Y(-1.28), c('o'), 1);
+        T(X(0.56 * s), Y(-0.62), X(0.34 * s), Y(-0.8), X(0.6 * s), Y(-1.06), c('c'), 1);
+      }
+      E(FX(-1.12), Y(0.26), R * 0.44 * kx, R * 0.27 * ky, c('o'), 1);
+      E(FX(-1.44), Y(0.1), R * 0.17 * kx, R * 0.15 * ky, c('w'), 1);
+      break;
+    case 'penguin':
+      for (const s of [-1, 1]) E(X(0.98 * s), Y(0.2), R * 0.16 * kx, R * 0.32 * ky, c('N'), 1);
+      break;
+    case 'raccoon': {
+      for (const s of [-1, 1]) {
+        T(X(0.66 * s), Y(-0.52), X(0.22 * s), Y(-0.84), X(0.62 * s), Y(-1.16), c('g'), 1);
+        T(X(0.56 * s), Y(-0.64), X(0.36 * s), Y(-0.8), X(0.56 * s), Y(-0.98), c('D'), 1);
+      }
+      const tx = FX(-1.12), band = Math.max(1.5, R * 0.16);
+      E(tx, Y(0.3), R * 0.4 * kx, R * 0.22 * ky, (dx) => (Math.floor((dx - tx) / band) & 1 ? c('D') : c('l')), 1);
+      break;
+    }
+  }
+
+  /* ---- body ---- */
+  const bodyCol = (dx, dy) => {
+    const rr = rad(Math.atan2(dy, dx));
+    if (Math.hypot(dx + R * 0.17, dy + R * 0.15) > rr * 0.94) return c(C.shade);
+    if (Math.hypot(dx + R * 0.5, dy + R * 0.46) < Math.max(0.9, R * 0.13)) return c(C.light);
+    return c(C.body);
+  };
+  if (C.id === 'shark') T(X(-0.52), Y(-0.66), X(0.52), Y(-0.66), 0, Y(-1.5), (dx) => (dx > R * 0.12 ? c('u') : c('v')), 2);
+  const RB = R * 1.6;
+  put(cx - RB, cy - RB, cx + RB, cy + RB, (dx, dy) => { const rr = rad(Math.atan2(dy, dx)); return dx * dx + dy * dy <= rr * rr; }, bodyCol, 2);
+
+  /* ---- front: patches and bib (no outline) ---- */
+  if (C.id === 'cow') E(FX(0.24), Y(-0.68), R * 0.28 * kx, R * 0.14 * ky, c('e'), 4, 1);
+  if (C.id === 'raccoon') E(0, Y(-0.1), R * 0.76 * kx, R * 0.54 * ky, c('D'), 4, 1);
+  const big = C.id === 'penguin' || C.id === 'shark';
+  const bibY = Y(big ? 0.46 : 0.52);
+  E(0, bibY, R * (big ? 0.56 : 0.42) * kx, R * (big ? 0.42 : 0.3) * ky, c('w'), 4, 1);
+
+  /* ---- front: the jelly window (outlined) ---- */
+  const wy = Y(-0.1), wrx = R * 0.58 * kx, wry = R * 0.44 * ky;
+  E(0, wy, wrx, wry, (dx, dy) => {
+    const a = (dx + wrx * 0.2) / wrx, b = (dy - wy + wry * 0.22) / wry;
+    return a * a + b * b > 1 ? c(J.jd) : c(J.jm);
+  }, 3, 1);
+  if (C.id === 'pig') E(0, Y(-0.66), R * 0.23 * kx, R * 0.14 * ky, c('P'), 3, 1);
+  if (C.id === 'penguin') E(0, Y(-0.64), R * 0.17 * kx, R * 0.11 * ky, c('o'), 3, 1);
+
+  /* ---- outlines ---- */
+  const tmp = buf.tmp; tmp.set(col);
+  const ink = CI.k;
+  for (let yy = 0; yy < S; yy++) {
+    for (let xx = 0; xx < S; xx++) {
+      const i = yy * S + xx, L = lay[i];
+      const a = xx > 0 ? lay[i - 1] : 0, b = xx < S - 1 ? lay[i + 1] : 0, d = yy > 0 ? lay[i - S] : 0, e = yy < S - 1 ? lay[i + S] : 0;
+      if (L === 0) { if (a || b || d || e) tmp[i] = ink; }
+      else if (L === 1) { if (a >= 2 || b >= 2 || d >= 2 || e >= 2) tmp[i] = ink; }
+      else if (L === 3) { if (a === 2 || a === 4 || b === 2 || b === 4 || d === 2 || d === 4 || e === 2 || e === 4) tmp[i] = ink; }
+    }
+  }
+  col.set(tmp);
+
+  /* ---- details on top ---- */
+  E(X(-0.28), wy - wry * 0.42, Math.max(0.8, R * 0.11), Math.max(0.6, R * 0.06), c(J.jl), 3, 2);
+  E(X(-0.38), wy - wry * 0.3, Math.max(0.6, R * 0.06), Math.max(0.6, R * 0.05), c('w'), 3, 2);
+  if (C.id === 'pig' && R >= 7) {
+    for (const s of [-1, 1]) { const px = Math.floor(cx + X(0.08 * s) - (s < 0 ? 0.5 : 0)), py = Math.floor(cy + Y(-0.66)); const i = py * S + px; if (px >= 0 && px < S && py >= 0 && py < S && lay[i] === 3 && col[i] !== ink) col[i] = CI.m; }
+  }
+  const hs = Math.max(1, Math.floor(R / 15));
+  const hx0 = Math.round(cx - 2.5 * hs), hy0 = Math.round(cy + bibY - 2 * hs);
+  for (let ry = 0; ry < 4; ry++) for (let rx = 0; rx < 5; rx++) {
+    if (HEART[ry][rx] !== 'P') continue;
+    for (let sy = 0; sy < hs; sy++) for (let sx = 0; sx < hs; sx++) {
+      const px = hx0 + rx * hs + sx, py = hy0 + ry * hs + sy;
+      if (px < 0 || py < 0 || px >= S || py >= S) continue;
+      const i = py * S + px;
+      if (lay[i] === 4 && col[i] === CI.w) col[i] = CI.P;
+    }
+  }
+
+  /* ---- to pixels ---- */
+  const data = buf.img.data;
+  for (let i = 0; i < N; i++) {
+    const rgb = CRGB[col[i]], j = i * 4;
+    if (rgb) { data[j] = rgb[0]; data[j + 1] = rgb[1]; data[j + 2] = rgb[2]; data[j + 3] = 255; }
+    else data[j + 3] = 0;
+  }
+  buf.g.putImageData(buf.img, 0, 0);
+  return buf;
+}
+// a still portrait cropped around the body, for menus and the HUD
+function portrait(target, cos, pl, R) {
+  const b = paintChar({ cos, pl, R });
+  const g = target.getContext('2d');
+  g.clearRect(0, 0, target.width, target.height);
+  g.imageSmoothingEnabled = false;
+  const sx = Math.round(b.cx - target.width / 2), sy = Math.round(b.cy - target.height / 2 - R * 0.12);
+  g.drawImage(b.canvas, sx, sy, target.width, target.height, 0, 0, target.width, target.height);
+}
+
+function layout() {
+  const r = stage.getBoundingClientRect();
+  view.cw = Math.max(1, r.width); view.ch = Math.max(1, r.height);
+  view.dpr = Math.min(3, window.devicePixelRatio || 1);
+  cv.width = Math.round(view.cw * view.dpr); cv.height = Math.round(view.ch * view.dpr);
+  const avW = view.cw - 10, avH = view.ch - 18;
+  const fitL = Math.min(avW / PWL, avH / PHL), fitP = Math.min(avW / PHL, avH / PWL);
+  const rot = fitP > fitL * 1.06;
+  let u = Math.max(0.2, rot ? fitP : fitL);
+  const snapped = Math.floor(u * view.dpr) / view.dpr;
+  if (snapped >= 1 && snapped / u > 0.86) u = snapped;
+  view.u = u;
+  const pw = rot ? PHL : PWL, ph = rot ? PWL : PHL;
+  if (pix.width !== pw || pix.height !== ph || view.rot !== rot || !view.bg) {
+    pix.width = pw; pix.height = ph;
+    view.bg = makeTablecloth(pw, ph);
+  }
+  view.rot = rot; view.pw = pw; view.ph = ph;
+  view.aw = pw * u; view.ah = ph * u;
+  view.ox = Math.round((view.cw - view.aw) / 2 * view.dpr) / view.dpr;
+  view.oy = Math.round(((view.ch - view.ah) / 2 - 4) * view.dpr) / view.dpr;
+}
+function makeTablecloth(pw, ph) {
+  const c = document.createElement('canvas'); c.width = pw; c.height = ph;
+  const g = c.getContext('2d'), T = 16;
+  for (let y = 0; y < ph; y += T) for (let x = 0; x < pw; x += T) {
+    g.fillStyle = ((x / T + y / T) & 1) ? PAL.c : PAL.w;
+    g.fillRect(x, y, T, T);
+  }
+  // stitched hem two pixels in from the edge
+  g.fillStyle = PAL.e;
+  for (let x = 4; x < pw - 4; x += 6) { g.fillRect(x, 3, 3, 1); g.fillRect(x, ph - 4, 3, 1); }
+  for (let y = 4; y < ph - 4; y += 6) { g.fillRect(3, y, 1, 3); g.fillRect(pw - 4, y, 1, 3); }
+  return c;
+}
+// world -> art pixel
+const PX = (x, y) => (view.rot ? (H - y) / K : x / K);
+const PY = (x, y) => (view.rot ? x / K : y / K);
+// art pixel -> screen
+const SXp = (px) => view.ox + px * view.u;
+const SYp = (py) => view.oy + py * view.u;
+function pixEllipse(g, x, y, rx, ry, color) {
+  g.fillStyle = color;
+  const r2 = Math.max(1, Math.round(ry));
+  for (let dy = -r2; dy <= r2; dy++) {
+    const w = Math.round(rx * Math.sqrt(Math.max(0, 1 - (dy * dy) / ((ry + 0.5) * (ry + 0.5)))));
+    if (w > 0) g.fillRect(Math.round(x - w), Math.round(y + dy), w * 2, 1);
+  }
+}
+
+/* ================= bubbles ================= */
+function mkBubble(i) {
+  return {
+    i, x: i ? W * 0.8 : W * 0.2, y: H / 2, vx: 0, vy: 0, r: START_R, rd: START_R, rdv: 0,
+    off: new Float32Array(NSB), ov: new Float32Array(NSB),
+    lookX: i ? -1 : 1, lookY: 0, blink: 1 + Math.random() * 3, blinkT: 0, mouth: 0, want: 0, mood: 0,
+    scale: 1, dead: false, hidden: false, net: null, face: i ? -1 : 1, buf: null,
+  };
+}
+const maxSpeed = (r) => 245 * Math.pow(START_R / r, 0.32);
+function impulse(b, ang, amt) {
+  for (let i = 0; i < NSB; i++) { const c = Math.cos(i / NSB * TAU - ang); if (c > 0) b.ov[i] -= amt * c * c; }
+}
+function pulse(b, amt) { for (let i = 0; i < NSB; i++) b.ov[i] += amt * (0.75 + Math.random() * 0.5); }
+function softStep(b, dt) {
+  const steps = Math.max(1, Math.ceil(dt / 0.008)), h = dt / steps;
+  for (let s = 0; s < steps; s++) {
+    for (let i = 0; i < NSB; i++) {
+      const o = b.off[i], l = b.off[(i + NSB - 1) % NSB], r = b.off[(i + 1) % NSB];
+      b.ov[i] += (-170 * o + 70 * (l + r - 2 * o) - 6.5 * b.ov[i]) * h;
+    }
+    for (let i = 0; i < NSB; i++) b.off[i] = clamp(b.off[i] + b.ov[i] * h, -0.32, 0.32);
+  }
+  if (Math.random() < dt * 1.6) b.ov[(Math.random() * NSB) | 0] += (Math.random() - 0.5) * 0.7;
+  b.rdv += ((b.r - b.rd) * 95 - b.rdv * 8.5) * dt;
+  b.rd += b.rdv * dt;
+}
+function walls(b) {
+  if (b.x < b.r) { b.x = b.r; if (b.vx < 0) { impulse(b, Math.PI, Math.min(2.4, -b.vx / 82)); b.vx = -b.vx * 0.6; } }
+  if (b.x > W - b.r) { b.x = W - b.r; if (b.vx > 0) { impulse(b, 0, Math.min(2.4, b.vx / 82)); b.vx = -b.vx * 0.6; } }
+  if (b.y < b.r) { b.y = b.r; if (b.vy < 0) { impulse(b, -Math.PI / 2, Math.min(2.4, -b.vy / 82)); b.vy = -b.vy * 0.6; } }
+  if (b.y > H - b.r) { b.y = H - b.r; if (b.vy > 0) { impulse(b, Math.PI / 2, Math.min(2.4, b.vy / 82)); b.vy = -b.vy * 0.6; } }
+}
+function drive(b, ix, iy, dt) {
+  const ms = maxSpeed(b.r), k = Math.min(1, 7.5 * dt);
+  b.vx += (ix * ms - b.vx) * k; b.vy += (iy * ms - b.vy) * k;
+  b.x += b.vx * dt; b.y += b.vy * dt;
+  walls(b);
+}
+function settle(b, dt) {
+  const f = Math.pow(0.03, dt);
+  b.vx *= f; b.vy *= f; b.x += b.vx * dt; b.y += b.vy * dt;
+  walls(b);
+}
+function netFollow(b, dt) {
+  const n = b.net; if (!n) return;
+  const age = Math.min(0.12, (performance.now() - n.at) / 1000);
+  const tx = clamp(n.x + n.vx * age, 0, W), ty = clamp(n.y + n.vy * age, 0, H);
+  if (Math.hypot(tx - b.x, ty - b.y) > 160) { b.x = tx; b.y = ty; }
+  else { const k = Math.min(1, dt * 16); b.x += (tx - b.x) * k; b.y += (ty - b.y) * k; }
+  b.vx = n.vx; b.vy = n.vy;
+}
+const canEat = (a, b) => !a.dead && !b.dead && a.r >= b.r * EAT_RATIO;
+// the bite lands once the bigger bubble reaches the rival's middle
+const tryEat = (a, b) => canEat(a, b) && Math.hypot(a.x - b.x, a.y - b.y) < a.r;
+function collide(a, b, moveA, moveB) {
+  if (a.dead || b.dead || a.hidden || b.hidden) return false;
+  const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01, min = a.r + b.r;
+  if (d >= min) return false;
+  const nx = dx / d, ny = dy / d, ov = min - d;
+  const ma = a.r * a.r, mb = b.r * b.r, ta = mb / (ma + mb), tb = ma / (ma + mb);
+  if (moveA) { a.x -= nx * ov * ta; a.y -= ny * ov * ta; }
+  if (moveB) { b.x += nx * ov * tb; b.y += ny * ov * tb; }
+  const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+  let loud = false;
+  if (rv < 0) {
+    const j = -1.9 * rv / (1 / ma + 1 / mb);
+    if (moveA) { a.vx -= (j / ma + 52 * ta) * nx; a.vy -= (j / ma + 52 * ta) * ny; }
+    if (moveB) { b.vx += (j / mb + 52 * tb) * nx; b.vy += (j / mb + 52 * tb) * ny; }
+    const amt = Math.min(2.6, -rv / 90);
+    impulse(a, Math.atan2(ny, nx), amt); impulse(b, Math.atan2(-ny, -nx), amt);
+    loud = rv < -45;
+    if (moveA) walls(a);
+    if (moveB) walls(b);
+  }
+  return loud;
+}
+function animBubble(g, b, dt) {
+  softStep(b, dt);
+  b.mouth = Math.max(0, b.mouth - dt * 2.6);
+  b.blink -= dt;
+  if (b.blink < 0) { b.blinkT = 0.12; b.blink = 2 + Math.random() * 3.5; }
+  if (b.blinkT > 0) b.blinkT -= dt;
+  const op = g.b[1 - b.i];
+  let tx = b.vx, ty = b.vy;
+  b.mood = 0;
+  if (!op.dead && !op.hidden) {
+    const od = Math.hypot(op.x - b.x, op.y - b.y);
+    if (od < 280 + op.r) {
+      if (canEat(op, b)) b.mood = -1; else if (canEat(b, op)) b.mood = 1;
+      if (b.mood !== 0 || Math.hypot(b.vx, b.vy) < 30) { tx = op.x - b.x; ty = op.y - b.y; }
+    }
+  }
+  let near = 1e9;
+  for (const f of g.foods) { const d = Math.hypot(f.x - b.x, f.y - b.y) - b.r; if (d < near) near = d; }
+  b.want = clamp(1 - near / 52, 0, 1);
+  const m = Math.hypot(tx, ty);
+  const lx = m > 1 ? tx / m : 0, ly = m > 1 ? ty / m : 0;
+  const k = Math.min(1, dt * 8);
+  b.lookX += (lx - b.lookX) * k; b.lookY += (ly - b.lookY) * k;
+  const svx = view.rot ? -b.vy : b.vx;
+  if (svx > 30) b.face = 1; else if (svx < -30) b.face = -1;
+}
+
+/* ================= game state ================= */
+let G = null;
+function newGame(mode, opts = {}) {
+  const g = {
+    mode, phase: 'idle', phaseT: 0, t: 0, n: 0, countT: 0, goT: 0,
+    round: 1, score: [0, 0], timer: ROUND_TIME, rs: 0, rw: -1, how: '', mw: -1,
+    b: [mkBubble(0), mkBubble(1)],
+    foods: [], foodId: 1, foodT: 0, parts: [], events: [], evId: 0,
+    dying: null, shake: 0, paused: false, first: true,
+    names: opts.names || [PL[0].label, PL[1].label],
+    me: opts.me == null ? -1 : opts.me,
+    ai: [null, null],
+    cos: opts.cos ? opts.cos.slice() : [0, 1],
+  };
+  if (mode === 'solo') g.ai[1] = mkAI(opts.skill);
+  if (mode === 'demo') { g.ai[0] = mkAI('normal'); g.ai[1] = mkAI('normal'); }
+  return g;
+}
+function mkAI(level) { const k = SKILL[level] || SKILL.normal; return Object.assign({ t: 0, dx: 0, dy: 0, wander: Math.random() * TAU }, k); }
+function setPhase(g, p) { g.phase = p; g.phaseT = 0; }
+function pickFoodType() {
+  let r = Math.random() * FOOD_W;
+  for (let i = 0; i < FOODS.length; i++) { r -= FOODS[i].w; if (r <= 0) return i; }
+  return 0;
+}
+function spawnFood(g) {
+  const t = pickFoodType(), fr = FOODS[t].r;
+  for (let k = 0; k < 14; k++) {
+    const x = 32 + Math.random() * (W - 64), y = 32 + Math.random() * (H - 64);
+    let ok = true;
+    for (const b of g.b) if (Math.hypot(b.x - x, b.y - y) < b.r + fr + 38) { ok = false; break; }
+    if (ok) for (const f of g.foods) if (Math.hypot(f.x - x, f.y - y) < 36) { ok = false; break; }
+    if (ok) { g.foods.push({ id: g.foodId++, x, y, t, age: 0, hide: 0 }); return; }
+  }
+}
+function startRound(g) {
+  g.rs++;
+  g.b = [mkBubble(0), mkBubble(1)];
+  g.foods = [];
+  for (let i = 0; i < FIRST_FOOD; i++) spawnFood(g);
+  g.foodT = FOOD_EVERY; g.timer = ROUND_TIME; g.dying = null; g.parts = [];
+  g.rw = -1; g.how = ''; g.n = 0;
+  setPhase(g, 'count');
+}
+function startMatch(g) { g.score = [0, 0]; g.round = 1; g.mw = -1; g.first = true; startRound(g); }
+function endRound(g, w, how) {
+  setPhase(g, 'roundEnd'); g.rw = w; g.how = how;
+  if (w === 0 || w === 1) g.score[w]++;
+  if (how === 'eat') addEvent(g, 1, w, 0, g.b[1 - w].x, g.b[1 - w].y);
+  else if (g.mode !== 'demo') SFX.whistle();
+}
+function addEvent(g, k, w, ft, x, y) {
+  const ev = { id: ++g.evId, k, w, ft, x, y };
+  g.events.push(ev); if (g.events.length > 6) g.events.shift();
+  onEvent(g, k, w, ft, x, y);
+}
+function onEvent(g, k, w, ft, x, y) {
+  const quiet = g.mode === 'demo';
+  if (k === 0) {
+    const b = g.b[w];
+    b.mouth = 1; pulse(b, 0.55);
+    burst(g, x, y, PAL[FOODS[ft].c], 9, 125, 5);
+    if (!quiet) SFX.eat(ft);
+  } else if (k === 1) {
+    startDying(g, 1 - w, w);
+    if (!quiet) SFX.gulp();
+    g.shake = 0.4;
+  }
+}
+function startDying(g, v, by) {
+  if (g.dying) return;
+  const b = g.b[v];
+  g.dying = { v, by, t: 0, x0: b.x, y0: b.y };
+  burst(g, b.x, b.y, PL[v].main, 16, 240, 7);
+  burst(g, b.x, b.y, PAL[COSTUMES[g.cos[v]].body], 14, 205, 6);
+}
+function stepDying(g, dt) {
+  const d = g.dying; if (!d) return;
+  const prev = d.t; d.t += dt;
+  const v = g.b[d.v], e = g.b[d.by];
+  const k = clamp(d.t / 0.45, 0, 1), ease = k * k;
+  if (!v.dead) { v.x = d.x0 + (e.x - d.x0) * ease; v.y = d.y0 + (e.y - d.y0) * ease; v.scale = 1 - ease; }
+  if (prev < 0.42 && d.t >= 0.42) { e.mouth = 1.4; pulse(e, 1.4); e.rdv += 40; }
+  if (k >= 1) v.dead = true;
+}
+function burst(g, x, y, col, n, sp, size) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * TAU, v = sp * (0.35 + Math.random() * 0.8);
+    g.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: 0, max: 0.4 + Math.random() * 0.4, col, sz: size * (0.6 + Math.random() * 0.8) });
+  }
+  if (g.parts.length > 180) g.parts.splice(0, g.parts.length - 180);
+}
+function stepParts(g, dt) {
+  const f = Math.pow(0.04, dt);
+  for (let i = g.parts.length - 1; i >= 0; i--) {
+    const p = g.parts[i];
+    p.life += dt; if (p.life >= p.max) { g.parts.splice(i, 1); continue; }
+    p.vx *= f; p.vy *= f; p.x += p.vx * dt; p.y += p.vy * dt;
+  }
+}
+
+/* ================= computer player ================= */
+function bestFood(g, me, op, avoid) {
+  let best = null, bs = -1;
+  for (const f of g.foods) {
+    const d = Math.hypot(f.x - me.x, f.y - me.y);
+    let s = FOODS[f.t].v / (d + 52);
+    if (avoid) { const od = Math.hypot(f.x - op.x, f.y - op.y); s *= clamp((od - op.r) / 190, 0.05, 1); }
+    if (s > bs) { bs = s; best = f; }
+  }
+  return best;
+}
+function aiInput(g, i, dt) {
+  const ai = g.ai[i], me = g.b[i], op = g.b[1 - i];
+  ai.t -= dt;
+  if (ai.t <= 0) {
+    ai.t = ai.react * (0.7 + Math.random() * 0.6);
+    let dx = 0, dy = 0;
+    const ox = op.x - me.x, oy = op.y - me.y, d = Math.hypot(ox, oy) || 1;
+    const threat = canEat(op, me), edible = canEat(me, op);
+    if (threat && d < 155 + op.r * 2.6) {
+      dx = -ox / d; dy = -oy / d;
+      const m = 125;
+      if (me.x < m) dx += (m - me.x) / m * 1.8;
+      if (me.x > W - m) dx -= (me.x - (W - m)) / m * 1.8;
+      if (me.y < m) dy += (m - me.y) / m * 1.8;
+      if (me.y > H - m) dy -= (me.y - (H - m)) / m * 1.8;
+      const f = bestFood(g, me, op, true);
+      if (f) {
+        const fx = f.x - me.x, fy = f.y - me.y, fd = Math.hypot(fx, fy) || 1;
+        if (fx * -ox + fy * -oy > 0) { dx += fx / fd * 0.6; dy += fy / fd * 0.6; }
+      }
+    } else if (edible && d < ai.chase) {
+      const lead = clamp(d / maxSpeed(me.r), 0, 1) * 0.6;
+      dx = op.x + op.vx * lead - me.x; dy = op.y + op.vy * lead - me.y;
+    } else {
+      const f = bestFood(g, me, op, threat);
+      if (f) { dx = f.x - me.x; dy = f.y - me.y; }
+      else {
+        ai.wander += (Math.random() - 0.5) * 1.2;
+        dx = Math.cos(ai.wander) + (W / 2 - me.x) / W; dy = Math.sin(ai.wander) + (H / 2 - me.y) / H;
+      }
+    }
+    const m = Math.hypot(dx, dy) || 1; dx /= m; dy /= m;
+    const a = (Math.random() - 0.5) * ai.noise, c = Math.cos(a), s = Math.sin(a);
+    ai.dx = dx * c - dy * s; ai.dy = dx * s + dy * c;
+  }
+  return [ai.dx * ai.speed, ai.dy * ai.speed];
+}
+
+/* ================= input ================= */
+const keys = new Set();
+const sticks = new Map();
+function readHuman(slot, any) {
+  let x = 0, y = 0;
+  const K = (c) => keys.has(c);
+  if (any || slot === 0) { if (K('KeyW')) y -= 1; if (K('KeyS')) y += 1; if (K('KeyA')) x -= 1; if (K('KeyD')) x += 1; }
+  if (any || slot === 1) { if (K('ArrowUp')) y -= 1; if (K('ArrowDown')) y += 1; if (K('ArrowLeft')) x -= 1; if (K('ArrowRight')) x += 1; }
+  x = clamp(x, -1, 1); y = clamp(y, -1, 1);
+  const m = Math.hypot(x, y); if (m > 1) { x /= m; y /= m; }
+  for (const st of sticks.values()) {
+    if (!any && st.slot !== slot) continue;
+    const dx = st.x - st.bx, dy = st.y - st.by, d = Math.hypot(dx, dy);
+    if (d > 7) { const mag = Math.min(1, d / STICK_R); x = dx / d * mag; y = dy / d * mag; }
+  }
+  return view.rot ? [y, -x] : [x, y];
+}
+function localPt(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+cv.addEventListener('pointerdown', (e) => {
+  SFX.init();
+  if (!G || G.mode === 'demo' || G.paused) return;
+  e.preventDefault();
+  const [x, y] = localPt(e);
+  let slot = 0;
+  if (G.mode === 'local') slot = view.rot ? (y > view.ch / 2 ? 1 : 0) : (x > view.cw / 2 ? 1 : 0);
+  for (const [id, s] of sticks) if (s.slot === slot) sticks.delete(id);
+  sticks.set(e.pointerId, { bx: x, by: y, x, y, slot });
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+});
+cv.addEventListener('pointermove', (e) => {
+  const s = sticks.get(e.pointerId); if (!s) return;
+  e.preventDefault();
+  const [x, y] = localPt(e);
+  s.x = x; s.y = y;
+  const dx = x - s.bx, dy = y - s.by, d = Math.hypot(dx, dy);
+  if (d > STICK_R) { s.bx = x - dx / d * STICK_R; s.by = y - dy / d * STICK_R; }
+});
+const endStick = (e) => { sticks.delete(e.pointerId); };
+cv.addEventListener('pointerup', endStick);
+cv.addEventListener('pointercancel', endStick);
+cv.addEventListener('lostpointercapture', endStick);
+document.addEventListener('touchmove', (e) => { if (e.target === cv) e.preventDefault(); }, { passive: false });
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+addEventListener('keydown', (e) => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+  SFX.init();
+  const inGame = G && G.mode !== 'demo' && !hudEl.hidden;
+  if (inGame && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
+  if (inGame && (e.code === 'Escape' || e.code === 'KeyP')) { togglePause(); return; }
+  keys.add(e.code);
+});
+addEventListener('keyup', (e) => keys.delete(e.code));
+addEventListener('blur', () => { keys.clear(); sticks.clear(); });
+for (const ev of ['pointerdown', 'touchend', 'click']) addEventListener(ev, () => SFX.init(), true);
+
+/* ================= simulation ================= */
+function controller(g, i) {
+  switch (g.mode) {
+    case 'demo': return 'ai';
+    case 'solo': return i === 0 ? 'any' : 'ai';
+    case 'local': return 'slot';
+    case 'host': return i === 0 ? 'any' : 'net';
+  }
+  return 'none';
+}
+function authStep(g, dt) {
+  const b0 = g.b[0], b1 = g.b[1];
+  if (g.phase === 'count') {
+    const n = 3 - Math.floor(g.phaseT);
+    if (n !== g.n && n > 0) { g.n = n; g.countT = 0; if (g.mode !== 'demo') SFX.beep(false); }
+    for (const b of g.b) { if (controller(g, b.i) === 'net') netFollow(b, dt); else settle(b, dt); }
+    if (g.phaseT >= 3) { setPhase(g, 'play'); g.n = 0; g.goT = 0.8; g.first = false; if (g.mode !== 'demo') SFX.beep(true); }
+  } else if (g.phase === 'play') {
+    for (let i = 0; i < 2; i++) {
+      const b = g.b[i], c = controller(g, i);
+      if (c === 'net') { netFollow(b, dt); continue; }
+      let inp = [0, 0];
+      if (c === 'ai') inp = aiInput(g, i, dt);
+      else if (c === 'any') inp = readHuman(0, true);
+      else if (c === 'slot') inp = readHuman(i, false);
+      drive(b, inp[0], inp[1], dt);
+    }
+    if (!canEat(b0, b1) && !canEat(b1, b0)) {
+      if (collide(b0, b1, true, g.mode !== 'host') && g.mode !== 'demo') SFX.boing();
+    }
+    for (let k = g.foods.length - 1; k >= 0; k--) {
+      const f = g.foods[k], fr = FOODS[f.t].r;
+      for (let i = 0; i < 2; i++) {
+        const b = g.b[i];
+        if (Math.hypot(b.x - f.x, b.y - f.y) < b.r + fr * 0.35) {
+          g.foods.splice(k, 1);
+          b.r = Math.min(MAX_R, Math.sqrt(b.r * b.r + FOODS[f.t].v));
+          addEvent(g, 0, i, f.t, f.x, f.y);
+          break;
+        }
+      }
+    }
+    if (tryEat(b0, b1)) endRound(g, 0, 'eat');
+    else if (tryEat(b1, b0)) endRound(g, 1, 'eat');
+    else {
+      g.timer -= dt;
+      if (g.timer <= 0) {
+        g.timer = 0;
+        const a0 = b0.r * b0.r, a1 = b1.r * b1.r;
+        if (Math.abs(a0 - a1) / Math.max(a0, a1) < 0.03) endRound(g, -1, 'tie');
+        else endRound(g, a0 > a1 ? 0 : 1, 'time');
+      }
+    }
+    g.foodT -= dt;
+    if (g.foodT <= 0) { g.foodT = FOOD_EVERY; if (g.foods.length < MAX_FOOD) spawnFood(g); }
+  } else if (g.phase === 'roundEnd') {
+    for (const b of g.b) {
+      if (b.dead || (g.dying && g.dying.v === b.i)) continue;
+      if (controller(g, b.i) === 'net') netFollow(b, dt); else settle(b, dt);
+    }
+    if (g.phaseT > 3.2) {
+      if (g.score[0] >= WIN_AT || g.score[1] >= WIN_AT) {
+        g.mw = g.score[0] >= WIN_AT ? 0 : 1;
+        setPhase(g, 'over');
+        if (g.mode !== 'demo') showOver(g);
+      } else {
+        if (g.how !== 'tie') g.round++;
+        startRound(g);
+      }
+    }
+  } else if (g.phase === 'over') {
+    if (g.mode === 'demo' && g.phaseT > 2.5) startMatch(g);
+    for (const b of g.b) if (!b.dead) settle(b, dt);
+  } else if (g.phase === 'wait') {
+    const inp = readHuman(0, true);
+    drive(b0, inp[0], inp[1], dt);
+  }
+}
+function guestStep(g, dt) {
+  const b0 = g.b[0], b1 = g.b[1];
+  const d = g.dying;
+  if (g.phase === 'play') {
+    const inp = readHuman(0, true);
+    drive(b1, inp[0], inp[1], dt);
+    netFollow(b0, dt);
+    if (!canEat(b0, b1) && !canEat(b1, b0)) { if (collide(b0, b1, false, true)) SFX.boing(); }
+    const now = performance.now();
+    for (const f of g.foods) if (!f.hide && Math.hypot(b1.x - f.x, b1.y - f.y) < b1.r + FOODS[f.t].r * 0.35) f.hide = now;
+    g.timer = Math.max(0, g.timer - dt);
+  } else {
+    if (!(d && d.v === 1) && !b1.dead) settle(b1, dt);
+    if (!(d && d.v === 0) && !b0.dead) netFollow(b0, dt);
+  }
+}
+function update(dt) {
+  const g = G; if (!g) return;
+  if (g.paused) return;
+  g.t += dt; g.phaseT += dt; g.countT += dt;
+  if (g.goT > 0) g.goT -= dt;
+  if (g.shake > 0) g.shake -= dt;
+  if (g.mode === 'guest') guestStep(g, dt); else authStep(g, dt);
+  if (G !== g) return;
+  stepDying(g, dt);
+  for (const b of g.b) animBubble(g, b, dt);
+  for (const f of g.foods) f.age += dt;
+  stepParts(g, dt);
+  if (g.mode === 'host' || g.mode === 'guest') netTick(g);
+}
+
+/* ================= drawing ================= */
+function radFor(g, b, R) {
+  const aoff = view.rot ? Math.PI / 2 : 0;
+  let svx = b.vx, svy = b.vy;
+  if (view.rot) { const t = svx; svx = -svy; svy = t; }
+  const sn = Math.hypot(svx, svy) / maxSpeed(b.r), phi = Math.atan2(svy, svx);
+  const st = Math.min(0.13, sn * 0.1);
+  const jig = reduceMotion ? 0 : 0.045 * Math.min(1, sn) * Math.sin(g.t * 15 + b.i * 2);
+  const breathe = reduceMotion ? 1 : 1 + 0.03 * Math.sin(g.t * 4.2 + b.i * 2.1);
+  return (th) => {
+    let a = (th - aoff) / TAU * NSB; a = ((a % NSB) + NSB) % NSB;
+    const fl = Math.floor(a), i0 = fl % NSB, i1 = (i0 + 1) % NSB, t = a - fl;
+    const off = b.off[i0] * (1 - t) + b.off[i1] * t;
+    const c2 = Math.cos(2 * (th - phi));
+    return R * breathe * (1 + off) * (1 + st * c2) * (1 + jig * c2);
+  };
+}
+function drawBubble(g, b) {
+  if (b.dead || b.hidden) return;
+  const R = (b.rd * b.scale) / K;
+  if (R < 1.5) return;
+  const rad = radFor(g, b, R);
+  const kx = (rad(0) + rad(Math.PI)) / (2 * R), ky = (rad(Math.PI / 2) + rad(-Math.PI / 2)) / (2 * R);
+  b.buf = paintChar({ cos: g.cos[b.i], pl: b.i, R, rad, kx, ky, face: b.face, buf: b.buf });
+  let x = Math.round(PX(b.x, b.y)), y = Math.round(PY(b.x, b.y));
+  if (b.mood === -1 && !reduceMotion) x += ((g.t * 24) | 0) % 2 ? 1 : 0;
+  pixEllipse(pctx, x, Math.round(y + R * 0.98), R * 0.78, Math.max(1, R * 0.14), PAL.l);
+  pctx.drawImage(b.buf.canvas, x - b.buf.cx, y - b.buf.cy);
+  if (b.mood === -1) pctx.drawImage(SWEAT, x + Math.round(R * 0.75), y - Math.round(R * 1.05) + (((g.t * 4) | 0) % 2));
+}
+function drawFood(g, f) {
+  const sp = SPR[f.t];
+  const x = Math.round(PX(f.x, f.y)), y = Math.round(PY(f.x, f.y));
+  const sc = f.age < 0.3 ? clamp(easeOutBack(f.age / 0.3), 0, 1.3) : 1;
+  const bob = reduceMotion ? 0 : (Math.sin(g.t * 3 + f.id * 1.7) > 0.4 ? -1 : 0);
+  pctx.fillStyle = PAL.l;
+  pctx.fillRect(x - Math.round(sp.width * 0.3), y + (sp.height >> 1), Math.round(sp.width * 0.6), 1);
+  if (sc > 0.999 && sc < 1.001) pctx.drawImage(sp, x - (sp.width >> 1), y - (sp.height >> 1) + bob);
+  else {
+    const w = Math.max(1, Math.round(sp.width * sc)), h = Math.max(1, Math.round(sp.height * sc));
+    pctx.drawImage(sp, x - (w >> 1), y - (h >> 1), w, h);
+  }
+}
+function drawParts(g) {
+  for (const p of g.parts) {
+    const k = 1 - p.life / p.max;
+    const s = Math.max(1, Math.round((p.sz / K) * (0.35 + k * 0.65)));
+    pctx.fillStyle = p.col;
+    pctx.fillRect(Math.round(PX(p.x, p.y) - s / 2), Math.round(PY(p.x, p.y) - s / 2), s, s);
+  }
+}
+function pxText(txt, x, y, size, fill) {
+  ctx.font = `${size}px "Press Start 2P", ui-monospace, monospace`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const t = Math.max(2, Math.round(size / 10));
+  x = Math.round(x); y = Math.round(y);
+  ctx.fillStyle = INK;
+  for (const [dx, dy] of [[t, 0], [-t, 0], [0, t], [0, -t], [t, t], [-t, t], [t, -t], [-t, -t], [0, t * 2.5], [t, t * 2.5], [-t, t * 2.5]]) ctx.fillText(txt, x + dx, y + dy);
+  ctx.fillStyle = fill; ctx.fillText(txt, x, y);
+}
+function fitPx(txt, size, maxW, family) {
+  for (; size > 8; size -= 2) {
+    ctx.font = family.replace('{s}', size);
+    if (ctx.measureText(txt).width <= maxW) break;
+  }
+  return size;
+}
+function pxPanel(X, Y, w, h, fill, b = 4) {
+  ctx.fillStyle = PAL.n; ctx.fillRect(X, Y + h + b, w, Math.round(b * 1.5));
+  ctx.fillStyle = INK; ctx.fillRect(X - b, Y, w + 2 * b, h); ctx.fillRect(X, Y - b, w, h + 2 * b);
+  ctx.fillStyle = fill; ctx.fillRect(X, Y, w, h);
+  ctx.fillStyle = PAL.l; ctx.fillRect(X, Y + h - 5, w, 5);
+}
+// size as a percent of the rival's (radius), and whether it can eat (1) or be eaten (-1)
+function sizeInfo(g, i) {
+  const me = g.b[i], op = g.b[1 - i];
+  return { pct: Math.floor((me.r / op.r) * 100 + 1e-6), state: canEat(me, op) ? 1 : canEat(op, me) ? -1 : 0 };
+}
+function drawTag(text, b, bg) {
+  if (b.dead || b.hidden) return;
+  const R = (b.rd * b.scale) / K;
+  const px = PX(b.x, b.y), py = PY(b.x, b.y);
+  const fs = view.u >= 2 ? 10 : 8;
+  ctx.font = `${fs}px "Press Start 2P", monospace`;
+  const w = Math.ceil(ctx.measureText(text).width) + 10, h = fs + 8;
+  const X = Math.round(SXp(px) - w / 2);
+  let Y = Math.round(SYp(py - R * 1.5) - h - 4);
+  if (Y < 2) Y = Math.round(SYp(py + R * 1.15) + 6);
+  ctx.fillStyle = INK; ctx.fillRect(X - 2, Y, w + 4, h); ctx.fillRect(X, Y - 2, w, h + 4);
+  ctx.fillStyle = bg; ctx.fillRect(X, Y, w, h);
+  ctx.fillStyle = PAL.w; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, X + w / 2, Y + h / 2 + 1);
+}
+function hintPill(txt, x, y, size) {
+  ctx.font = `600 ${size}px "Pixelify Sans", system-ui, sans-serif`;
+  const w = Math.ceil(ctx.measureText(txt).width + size * 1.4), h = Math.round(size * 1.9);
+  const X = Math.round(x - w / 2), Y = Math.round(y - h / 2);
+  ctx.fillStyle = INK; ctx.fillRect(X - 3, Y, w + 6, h); ctx.fillRect(X, Y - 3, w, h + 6);
+  ctx.fillStyle = PAL.w; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(txt, Math.round(x), Math.round(y) + 1);
+}
+function who(g, i, cap) { return i === g.me ? (cap ? 'You' : 'you') : g.names[i]; }
+function drawOverlay(g) {
+  if (g.mode === 'demo') return;
+  const cx = view.ox + view.aw / 2, cy = view.oy + view.ah / 2;
+  const base = Math.min(view.aw, view.ah);
+  const q = (v) => Math.max(8, Math.round(v / 4) * 4);
+  if (g.phase === 'count') {
+    pxText(`ROUND ${g.round}`, cx, cy - base * 0.3, q(base * 0.075), PAL.w);
+    if (g.n > 0) pxText(String(g.n), cx, cy, q(base * 0.24 * (reduceMotion || g.countT > 0.12 ? 1 : 1.25)), PAL.y);
+    if (g.first && g.round === 1) {
+      let hint;
+      if (g.mode === 'local') hint = coarse ? (view.rot ? 'Pink: top half · Blue: bottom half' : 'Pink: left half · Blue: right half') : 'Pink: W A S D · Blue: arrow keys';
+      else hint = coarse ? 'Drag anywhere to steer' : 'Move with W A S D or arrow keys';
+      hintPill(hint, cx, cy + base * 0.3, Math.max(13, Math.min(18, Math.round(base * 0.04))));
+    }
+  }
+  if (g.goT > 0) pxText('GO!', cx, cy, q(base * (g.goT > 0.62 && !reduceMotion ? 0.3 : 0.25)), PAL.P);
+  if (g.phase === 'roundEnd' && g.phaseT > 0.55) drawBanner(g, cx, cy, base);
+}
+function drawBanner(g, cx, cy, base) {
+  const w = g.rw;
+  let l1, l2;
+  if (g.how === 'eat') l1 = `${who(g, w, true)} ate ${who(g, 1 - w, false)}!`;
+  else if (g.how === 'time') l1 = "Time's up!";
+  else l1 = "It's a tie!";
+  if (g.how === 'tie') l2 = 'Same size. Replaying the round.';
+  else if (g.score[w] >= WIN_AT) l2 = w === g.me ? 'You win the match!' : `${g.names[w]} wins the match!`;
+  else l2 = (g.how === 'time' ? (w === g.me ? "You're" : `${g.names[w]} is`) + ' bigger. ' : '') + `Score ${g.score[0]} - ${g.score[1]}`;
+  l1 = l1.toUpperCase();
+  const bw = Math.round(Math.min(view.aw * 0.9, 640)), pad = Math.max(12, Math.round(base * 0.04));
+  const f1 = fitPx(l1, Math.max(12, Math.round(base * 0.07 / 2) * 2), bw - pad * 2, '{s}px "Press Start 2P", monospace');
+  const f2 = fitPx(l2, Math.max(14, Math.round(base * 0.045)), bw - pad * 2, '600 {s}px "Pixelify Sans", system-ui, sans-serif');
+  const bh = Math.round(f1 + f2 + pad * 2 + f1 * 0.9);
+  const X = Math.round(cx - bw / 2), Y = Math.round(cy - bh / 2) - (g.phaseT < 0.7 && !reduceMotion ? 6 : 0);
+  pxPanel(X, Y, bw, bh, PAL.w);
+  pxText(l1, cx, Y + pad + f1 / 2, f1, w === 0 || w === 1 ? PL[w].main : PAL.y);
+  ctx.font = `600 ${f2}px "Pixelify Sans", system-ui, sans-serif`;
+  ctx.fillStyle = INK; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(l2, Math.round(cx), Math.round(Y + bh - pad - f2 / 2 - 3));
+}
+function drawSticks(g) {
+  if (g.mode === 'demo') return;
+  for (const st of sticks.values()) {
+    const col = g.mode === 'local' ? PL[st.slot].main : PL[g.me >= 0 ? g.me : 0].main;
+    ctx.lineWidth = 4; ctx.strokeStyle = INK;
+    ctx.beginPath(); ctx.arc(st.bx, st.by, STICK_R, 0, TAU); ctx.stroke();
+    ctx.lineWidth = 2; ctx.strokeStyle = PAL.w;
+    ctx.beginPath(); ctx.arc(st.bx, st.by, STICK_R - 3, 0, TAU); ctx.stroke();
+    const dx = st.x - st.bx, dy = st.y - st.by, d = Math.hypot(dx, dy), m = Math.min(d, STICK_R);
+    const kx = d > 0 ? st.bx + dx / d * m : st.bx, ky = d > 0 ? st.by + dy / d * m : st.by;
+    ctx.fillStyle = INK; ctx.fillRect(kx - 22, ky - 18, 44, 36); ctx.fillRect(kx - 18, ky - 22, 36, 44);
+    ctx.fillStyle = col; ctx.fillRect(kx - 18, ky - 18, 36, 36);
+    ctx.fillStyle = PAL.w; ctx.fillRect(kx - 12, ky - 12, 8, 4);
+  }
+}
+function render() {
+  const g = G;
+  pctx.imageSmoothingEnabled = false;
+  pctx.drawImage(view.bg, 0, 0);
+  if (g) {
+    const now = performance.now();
+    for (const f of g.foods) { if (f.hide && now - f.hide < 700) continue; drawFood(g, f); }
+    const order = g.b.slice().sort((a, b) => a.rd * a.scale - b.rd * b.scale);
+    for (const b of order) drawBubble(g, b);
+    drawParts(g);
+  }
+  const { cw, ch, dpr, u } = view;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cw, ch);
+  ctx.save();
+  if (g && g.shake > 0 && !reduceMotion) {
+    const a = Math.max(1, Math.round(u * 2));
+    ctx.translate((Math.random() < 0.5 ? -1 : 1) * a, (Math.random() < 0.5 ? -1 : 1) * a);
+  }
+  const bd = Math.max(3, Math.round(u * 1.5));
+  ctx.fillStyle = PAL.n; ctx.fillRect(view.ox - bd, view.oy + bd * 3, view.aw + bd * 2, view.ah);
+  ctx.fillStyle = INK;
+  ctx.fillRect(view.ox - bd, view.oy, view.aw + bd * 2, view.ah);
+  ctx.fillRect(view.ox, view.oy - bd, view.aw, view.ah + bd * 2);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(pix, view.ox, view.oy, view.aw, view.ah);
+  if (g && g.mode !== 'demo') {
+    const both = g.b.every((b) => !b.dead && !b.hidden);
+    const flash = !reduceMotion && ((g.t * 4) | 0) % 2 === 0;
+    for (const b of g.b) {
+      const label = g.mode === 'local' ? `P${b.i + 1}` : b.i === g.me ? 'YOU' : '';
+      let bg = g.mode === 'local' ? PL[b.i].dark : b.i === g.me ? INK : PAL.N;
+      let text = label;
+      if (both) {
+        const s = sizeInfo(g, b.i);
+        text = (label ? label + ' ' : '') + s.pct + '%' + (s.state === 1 ? ' EAT!' : s.state === -1 ? ' RUN!' : '');
+        if (s.state === 1) bg = flash ? PAL.H : PAL.h;
+        else if (s.state === -1) bg = flash ? PAL.r : PAL.m;
+      }
+      if (text) drawTag(text, b, bg);
+    }
+  }
+  ctx.restore();
+  if (g) { drawOverlay(g); drawSticks(g); }
+}
+
+/* ================= HUD & screens ================= */
+const hudCache = {};
+function setText(sel, v) { if (hudCache[sel] !== v) { hudCache[sel] = v; $(sel).textContent = v; } }
+function hud(g) {
+  if (hudEl.hidden || g.mode === 'demo') return;
+  setText('#nm0', g.names[0]); setText('#nm1', g.names[1]);
+  setText('#hudRound', innerWidth < 560 ? `R${g.round}` : `ROUND ${g.round}`);
+  const t = Math.ceil(g.timer);
+  setText('#hudTime', `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`);
+  for (let p = 0; p < 2; p++) {
+    const pk = 'pt' + p + ':' + g.cos[p];
+    if (hudCache['pt' + p] !== pk) { hudCache['pt' + p] = pk; portrait($('#pt' + p), g.cos[p], p, 7); }
+    const key = 'pips' + p + ':' + g.score[p];
+    if (hudCache['pips' + p] !== key) {
+      hudCache['pips' + p] = key;
+      const pips = $('#pips' + p).children;
+      for (let i = 0; i < pips.length; i++) pips[i].classList.toggle('on', g.score[p] > i);
+    }
+    const s = sizeInfo(g, p);
+    setText('#pc' + p, s.pct + '%');
+    const ck = 'pcs' + p + ':' + s.state;
+    if (hudCache['pcs' + p] !== ck) {
+      hudCache['pcs' + p] = ck;
+      const el = $('#pc' + p);
+      el.classList.toggle('eat', s.state === 1); el.classList.toggle('run', s.state === -1);
+    }
+  }
+  const a0 = g.b[0].r * g.b[0].r, a1 = g.b[1].r * g.b[1].r;
+  const pct = Math.round((a0 / (a0 + a1)) * 100) + '%';
+  if (hudCache.bar !== pct) { hudCache.bar = pct; $('#bar0').style.width = pct; }
+}
+const SCREENS = ['menu', 'online', 'pause', 'over', 'notice'];
+function show(id, on = true) { $('#' + id).hidden = !on; }
+function hideAll() { for (const s of SCREENS) show(s, false); }
+function myName() { return cleanName($('#nameInput').value, ''); }
+let skill = store.get('skill', 'normal'); if (!SKILL[skill]) skill = 'normal';
+let myCos = cosIdx(parseInt(store.get('costume', '3'), 10), 3);
+const otherCos = (c) => (c + 1 + Math.floor(Math.random() * (COSTUMES.length - 1))) % COSTUMES.length;
+function syncSkill() { document.querySelectorAll('#skill button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.v === skill))); }
+function syncCostume() {
+  document.querySelectorAll('#costumes button').forEach((b) => b.setAttribute('aria-checked', String(Number(b.dataset.i) === myCos)));
+  $('#costumeName').textContent = COSTUMES[myCos].name;
+}
+function buildMenuArt() {
+  const box = $('#costumes');
+  COSTUMES.forEach((c, i) => {
+    const bt = document.createElement('button');
+    bt.type = 'button'; bt.setAttribute('role', 'radio'); bt.setAttribute('aria-label', c.name); bt.dataset.i = String(i); bt.title = c.name;
+    const cvs = document.createElement('canvas'); cvs.width = 40; cvs.height = 40; cvs.className = 'px';
+    portrait(cvs, i, 0, 11);
+    bt.append(cvs);
+    bt.addEventListener('click', () => { myCos = i; store.set('costume', String(i)); syncCostume(); });
+    box.append(bt);
+  });
+  document.querySelectorAll('#legend .em').forEach((el) => {
+    for (const idx of el.dataset.f.split(',').map(Number)) {
+      const img = document.createElement('img');
+      img.className = 'px'; img.alt = FOODS[idx].name; img.title = FOODS[idx].name;
+      img.src = SPR[idx].toDataURL();
+      img.style.width = SPR[idx].width * 2 + 'px';
+      el.append(img);
+    }
+  });
+  syncCostume();
+}
+function syncSound() {
+  for (const id of ['#btnSound', '#btnSound2']) {
+    const b = $(id);
+    b.querySelector('.snd-on').toggleAttribute('hidden', !SFX.on);
+    b.querySelector('.snd-off').toggleAttribute('hidden', SFX.on);
+    b.setAttribute('aria-label', SFX.on ? 'Sound on' : 'Sound off');
+  }
+}
+let toastTimer = 0;
+function toast(msg) {
+  const el = $('#toast'); el.textContent = msg; el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 2400);
+}
+let noticeThen = null;
+function notice(title, text, then) {
+  $('#noticeTitle').textContent = title.toUpperCase(); $('#noticeText').textContent = text;
+  noticeThen = then || null; show('notice');
+}
+function startGame(mode) {
+  SFX.init();
+  sticks.clear();
+  const cos = [myCos, otherCos(myCos)];
+  if (mode === 'solo') G = newGame('solo', { names: [myName() || 'You', 'Chompy'], me: 0, skill, cos });
+  else G = newGame('local', { names: ['Pink', 'Blue'], me: -1, cos });
+  startMatch(G);
+  hideAll(); hudEl.hidden = false;
+}
+function demoGame() {
+  const a = Math.floor(Math.random() * COSTUMES.length);
+  const g = newGame('demo', { cos: [a, otherCos(a)] });
+  startMatch(g);
+  return g;
+}
+function goMenu() {
+  if (NET.role) leaveChan();
+  sticks.clear();
+  G = demoGame();
+  hideAll(); hudEl.hidden = true; show('menu');
+}
+function togglePause(force) {
+  if (!G || G.mode === 'demo') return;
+  const online = G.mode === 'host' || G.mode === 'guest';
+  if (online) {
+    $('#pauseTitle').textContent = 'LEAVE THIS GAME?';
+    $('#btnQuit').textContent = 'LEAVE GAME';
+    show('pause', $('#pause').hidden);
+    return;
+  }
+  G.paused = force != null ? force : !G.paused;
+  $('#pauseTitle').textContent = 'PAUSED';
+  $('#btnQuit').textContent = 'QUIT TO MENU';
+  show('pause', G.paused);
+  if (G.paused) { keys.clear(); sticks.clear(); }
+}
+function showOver(g) {
+  const w = g.mw; if (w !== 0 && w !== 1) return;
+  portrait($('#winCv'), g.cos[w], w, 18);
+  $('#overTitle').textContent = (w === g.me ? 'You win!' : `${g.names[w]} wins!`).toUpperCase();
+  $('#ov0').textContent = g.score[0]; $('#ov1').textContent = g.score[1];
+  const guest = g.mode === 'guest', online = guest || g.mode === 'host';
+  $('#overSub').textContent = guest ? 'Waiting for the host to start a rematch…' : `${g.names[0]} vs ${g.names[1]}`;
+  $('#btnRematch').hidden = guest;
+  $('#btnMenu').textContent = online ? 'LEAVE GAME' : 'MENU';
+  show('pause', false); show('over');
+  if (g.me === -1 || w === g.me) SFX.win(); else SFX.lose();
+}
+
+/* ================= online play (room capability) ================= */
+const NET = {
+  room: null, ready: false, connected: false, chan: null, named: null, code: null, role: null,
+  myPeer: null, other: null, accepted: false, lastPres: null, lastSeen: 0, lastSend: 0, joinAt: 0,
+  evSeen: 0, pendingJoin: null, seq: 0,
+};
+function randCode() { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; for (let i = 0; i < 4; i++) s += a[(Math.random() * a.length) | 0]; return s; }
+function inviteText(code) { return ART_URL ? `${ART_URL}#join-${code}` : `Eat Me game code: ${code.toUpperCase()}`; }
+function lobbyPresence(p) { if (NET.room) NET.room.presence(p).catch(() => {}); }
+async function initRoom() {
+  let r = null;
+  try { if (window.claude && typeof window.claude.use === 'function') r = await window.claude.use('room'); } catch (e) { r = null; }
+  NET.room = r; NET.ready = true;
+  if (r) {
+    try { r.onPeers(() => renderGames(), () => {}); } catch (e) {}
+    try { r.onConnection((c) => { NET.connected = c; renderNet(); }, () => { NET.connected = false; renderNet(); }); } catch (e) {}
+  }
+  renderNet();
+  if (NET.pendingJoin) {
+    const c = NET.pendingJoin; NET.pendingJoin = null;
+    if (r) joinGame(c); else setOnlineUI('idle');
+  }
+}
+async function openChan(code) {
+  try { const nr = await NET.room.join('eatme-' + code); NET.named = nr; NET.chan = nr; }
+  catch (e) { NET.named = null; NET.chan = NET.room; }
+  return NET.chan;
+}
+async function leaveChan() {
+  const nr = NET.named, ch = NET.chan;
+  Object.assign(NET, { named: null, chan: null, code: null, role: null, other: null, accepted: false, lastPres: null });
+  if (nr) { try { await nr.leave(); } catch (e) {} }
+  else if (ch) { ch.presence({ g: null, role: null, st: null, p: null, ra: null }).catch(() => {}); }
+  lobbyPresence({ open: null });
+}
+async function hostGame() {
+  if (!NET.room) return;
+  SFX.init();
+  const seq = ++NET.seq;
+  if (NET.role) await leaveChan();
+  const code = randCode();
+  setOnlineUI('host');
+  $('#codeBig').textContent = code.toUpperCase();
+  $('#inviteLink').value = inviteText(code);
+  const ch = await openChan(code);
+  if (seq !== NET.seq) return;
+  Object.assign(NET, { code, role: 'h', accepted: false, other: null, lastPres: null, evSeen: 0, lastSeen: performance.now() });
+  ch.presence({ g: code, role: 'h', nm: myName() || 'Host', cs: myCos, p: null, ra: null, st: null }).catch(() => {});
+  lobbyPresence({ open: code, nm: myName() || 'Someone', cs: myCos });
+  G = newGame('host', { names: [myName() || 'You', 'Friend'], me: 0, cos: [myCos, otherCos(myCos)] });
+  G.b[1].hidden = true;
+  setPhase(G, 'wait');
+}
+async function joinGame(raw) {
+  const code = String(raw || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 4);
+  if (code.length !== 4) { toast('Game codes are 4 letters or numbers'); return; }
+  openOnline();
+  if (!NET.ready) { NET.pendingJoin = code; setOnlineUI('join'); $('#joinMsg').textContent = 'Connecting…'; return; }
+  if (!NET.room) { setOnlineUI('idle'); return; }
+  SFX.init();
+  const seq = ++NET.seq;
+  setOnlineUI('join'); $('#joinMsg').textContent = `Joining ${code.toUpperCase()}…`;
+  if (NET.role) await leaveChan();
+  const ch = await openChan(code);
+  if (seq !== NET.seq) return;
+  const now = performance.now();
+  Object.assign(NET, { code, role: 'j', accepted: false, other: null, lastPres: null, joinAt: now, lastSeen: now, evSeen: 0 });
+  ch.presence({ g: code, role: 'j', nm: myName() || 'Friend', cs: myCos, p: null, ra: -1, st: null }).catch(() => {});
+  G = newGame('guest', { names: ['Friend', myName() || 'You'], me: 1, cos: [otherCos(myCos), myCos] });
+  G.rs = -1; G.b[0].hidden = true;
+  setPhase(G, 'join');
+}
+function friendGone(text, title) {
+  goMenu();
+  notice(title || 'Game ended', text);
+}
+function packState(g) {
+  const b0 = g.b[0], b1 = g.b[1];
+  const f = [];
+  for (const x of g.foods) f.push(x.id, Math.round(x.x), Math.round(x.y), x.t);
+  const e = [];
+  for (const ev of g.events) e.push(ev.id, ev.k, ev.w, ev.ft, Math.round(ev.x), Math.round(ev.y));
+  return {
+    ph: g.phase, n: g.n, r: g.round, sc: [g.score[0], g.score[1]], rs: g.rs,
+    tm: Math.round(g.timer * 10) / 10, w: g.rw, hw: g.how, mw: g.mw, gp: NET.other || null,
+    b: [Math.round(b0.x), Math.round(b0.y), Math.round(b0.vx), Math.round(b0.vy), Math.round(b0.r * 10) / 10,
+        Math.round(b1.x), Math.round(b1.y), Math.round(b1.r * 10) / 10],
+    f, e,
+  };
+}
+function maxEventId(st) {
+  let m = 0; const e = Array.isArray(st.e) ? st.e : [];
+  for (let i = 0; i < e.length; i += 6) m = Math.max(m, num(e[i], 0));
+  return m;
+}
+function applyHostState(g, st) {
+  const b = st.b; if (!Array.isArray(b) || b.length < 8) return;
+  const rs = num(st.rs, 0);
+  if (rs !== g.rs) {
+    g.rs = rs;
+    g.b = [mkBubble(0), mkBubble(1)];
+    g.b[0].x = clamp(num(b[0], g.b[0].x), 0, W); g.b[0].y = clamp(num(b[1], g.b[0].y), 0, H);
+    g.b[1].x = clamp(num(b[5], g.b[1].x), 0, W); g.b[1].y = clamp(num(b[6], g.b[1].y), 0, H);
+    g.dying = null; g.parts = []; g.foods = [];
+  }
+  const B0 = g.b[0], B1 = g.b[1];
+  const ph = ['count', 'play', 'roundEnd', 'over', 'wait'].includes(st.ph) ? st.ph : g.phase;
+  const prev = g.phase;
+  g.how = ['eat', 'time', 'tie'].includes(st.hw) ? st.hw : '';
+  if (ph !== prev) {
+    setPhase(g, ph);
+    if (ph === 'play') { g.goT = 0.8; g.first = false; SFX.beep(true); }
+    if (ph === 'roundEnd' && g.how !== 'eat') SFX.whistle();
+    if (prev === 'over') show('over', false);
+  }
+  const n = num(st.n, 0);
+  if (n !== g.n) { g.n = n; g.countT = 0; if (ph === 'count' && n > 0) SFX.beep(false); }
+  g.round = clamp(num(st.r, 1), 1, 99);
+  const sc = Array.isArray(st.sc) ? st.sc : [];
+  g.score = [clamp(num(sc[0], 0), 0, 9), clamp(num(sc[1], 0), 0, 9)];
+  g.timer = clamp(num(st.tm, ROUND_TIME), 0, ROUND_TIME);
+  g.rw = [0, 1, -1].includes(st.w) ? st.w : -1;
+  g.mw = [0, 1].includes(st.mw) ? st.mw : -1;
+  B0.r = clamp(num(b[4], B0.r), 8, MAX_R); B1.r = clamp(num(b[7], B1.r), 8, MAX_R);
+  B0.net = { x: clamp(num(b[0], B0.x), 0, W), y: clamp(num(b[1], B0.y), 0, H), vx: clamp(num(b[2], 0), -900, 900), vy: clamp(num(b[3], 0), -900, 900), at: performance.now() };
+  const f = Array.isArray(st.f) ? st.f : [];
+  const old = new Map(g.foods.map((x) => [x.id, x]));
+  const nf = [];
+  for (let i = 0; i + 3 < f.length && nf.length < 40; i += 4) {
+    const id = num(f[i], -1); if (id < 0) continue;
+    let o = old.get(id);
+    if (!o) o = { id, x: clamp(num(f[i + 1], 0), 0, W), y: clamp(num(f[i + 2], 0), 0, H), t: clamp(num(f[i + 3], 0) | 0, 0, FOODS.length - 1), age: 0, hide: 0 };
+    nf.push(o);
+  }
+  g.foods = nf;
+  const e = Array.isArray(st.e) ? st.e : [];
+  for (let i = 0; i + 5 < e.length; i += 6) {
+    const id = num(e[i], 0);
+    if (id > NET.evSeen) {
+      NET.evSeen = id;
+      const k = e[i + 1], w = e[i + 2];
+      if ((k === 0 || k === 1) && (w === 0 || w === 1)) onEvent(g, k, w, clamp(num(e[i + 3], 0) | 0, 0, FOODS.length - 1), clamp(num(e[i + 4], 0), 0, W), clamp(num(e[i + 5], 0), 0, H));
+    }
+  }
+  if (ph === 'over' && prev !== 'over') showOver(g);
+}
+function netTick(g) {
+  const ch = NET.chan; if (!ch || !NET.code) return;
+  const now = performance.now();
+  let peers;
+  try { peers = ch.peers(); } catch (e) { return; }
+  let other = null;
+  for (const p of peers) {
+    if (p.sameTab) { NET.myPeer = p.peer; continue; }
+    const pr = p.presence;
+    if (!pr || pr.g !== NET.code) continue;
+    if (NET.role === 'h' && pr.role === 'j' && (!NET.other || p.peer === NET.other)) { if (!other) other = p; }
+    else if (NET.role === 'j' && pr.role === 'h') other = p;
+  }
+  if (other) NET.lastSeen = now;
+  if (NET.role === 'h') {
+    if (g.phase === 'wait') {
+      if (other && !NET.other) {
+        NET.other = other.peer; NET.accepted = true;
+        g.names[1] = cleanName(other.presence.nm, 'Friend');
+        g.cos[1] = cosIdx(other.presence.cs, g.cos[1]);
+        lobbyPresence({ open: null });
+        hideAll(); hudEl.hidden = false; g.b[1].hidden = false;
+        startMatch(g);
+        SFX.boing();
+      }
+    } else if (other) {
+      const pr = other.presence;
+      if (pr !== NET.lastPres) {
+        NET.lastPres = pr;
+        g.names[1] = cleanName(pr.nm, g.names[1]);
+        g.cos[1] = cosIdx(pr.cs, g.cos[1]);
+        const p = pr.p;
+        if (Array.isArray(p) && p.length >= 4 && pr.ra === g.rs) {
+          const b = g.b[1];
+          b.net = { x: clamp(num(p[0], b.x), 0, W), y: clamp(num(p[1], b.y), 0, H), vx: clamp(num(p[2], 0), -900, 900), vy: clamp(num(p[3], 0), -900, 900), at: now };
+        }
+      }
+    } else if (NET.other && now - NET.lastSeen > 3500) { friendGone('Your friend left the game.'); return; }
+    if (now - NET.lastSend > 40) { NET.lastSend = now; ch.presence({ st: packState(g) }).catch(() => {}); }
+  } else {
+    if (other && NET.myPeer) {
+      const pr = other.presence, st = pr.st;
+      if (pr !== NET.lastPres && st && typeof st === 'object') {
+        NET.lastPres = pr;
+        if (!NET.accepted && st.gp) {
+          if (st.gp === NET.myPeer) {
+            NET.accepted = true;
+            NET.evSeen = maxEventId(st);
+            hideAll(); hudEl.hidden = false;
+          } else { friendGone('That game already has two players. Ask your friend to create a new one.', 'Game is full'); return; }
+        }
+        if (NET.accepted) { g.names[0] = cleanName(pr.nm, g.names[0]); g.cos[0] = cosIdx(pr.cs, g.cos[0]); applyHostState(g, st); }
+      }
+    }
+    if (!NET.accepted && now - NET.joinAt > 10000) { friendGone("We couldn't find that game. Check the code, or ask your friend to create a new one.", 'Game not found'); return; }
+    if (NET.accepted && !other && now - NET.lastSeen > 3500) { friendGone('The host left the game.'); return; }
+    if (NET.accepted && now - NET.lastSend > 40) {
+      NET.lastSend = now;
+      const b = g.b[1];
+      ch.presence({ p: [Math.round(b.x), Math.round(b.y), Math.round(b.vx), Math.round(b.vy)], ra: g.rs }).catch(() => {});
+    }
+  }
+}
+function setOnlineUI(m) {
+  $('#onIdle').hidden = m !== 'idle'; $('#onHost').hidden = m !== 'host'; $('#onJoin').hidden = m !== 'join';
+}
+function openOnline() {
+  hideAll(); hudEl.hidden = true; show('online');
+  setOnlineUI(NET.role === 'h' ? 'host' : NET.role === 'j' || NET.pendingJoin ? 'join' : 'idle');
+  renderNet(); renderGames();
+}
+function renderNet() {
+  const pill = $('#netPill'), note = $('#netNote');
+  const off = NET.ready && !NET.room;
+  pill.className = 'status-pill' + (off ? ' bad' : NET.ready && NET.connected ? ' ok' : '');
+  pill.textContent = !NET.ready ? 'CONNECTING…' : off ? 'ONLINE PLAY UNAVAILABLE HERE' : NET.connected ? 'ONLINE' : 'CONNECTING…';
+  $('#btnHost').disabled = off; $('#codeInput').disabled = off;
+  $('#joinForm button').disabled = off;
+  note.textContent = off
+    ? 'Online play works when this game is opened on claude.ai by someone signed in who it was shared with. You can still play the computer, or 2 players on one device.'
+    : 'Your friend needs to be signed in to Claude and invited to this game from the Share menu. Anyone who opens a public link can still play the computer.';
+}
+function renderGames() {
+  const box = $('#openGames');
+  if (!NET.room || $('#online').hidden) return;
+  let list = [];
+  try { list = NET.room.peers().filter((p) => !p.sameTab && p.presence && typeof p.presence.open === 'string' && /^[a-z0-9]{4}$/.test(p.presence.open)); } catch (e) {}
+  const sig = list.map((p) => p.peer + p.presence.open + p.presence.nm + p.presence.cs).join('|');
+  if (sig === box.dataset.sig) return;
+  box.dataset.sig = sig;
+  box.replaceChildren();
+  if (!list.length) {
+    const p = document.createElement('p'); p.className = 'empty'; p.textContent = 'No open games right now.'; box.append(p); return;
+  }
+  for (const p of list.slice(0, 6)) {
+    const code = p.presence.open;
+    const row = document.createElement('div'); row.className = 'game-row';
+    const pc = document.createElement('canvas'); pc.width = 22; pc.height = 22; pc.className = 'px'; portrait(pc, cosIdx(p.presence.cs, 0), 0, 7);
+    const nm = document.createElement('span'); nm.className = 'g-nm'; nm.textContent = `${cleanName(p.presence.nm, 'Someone')}'s game`;
+    const cd = document.createElement('span'); cd.className = 'g-code'; cd.textContent = code.toUpperCase();
+    const bt = document.createElement('button'); bt.className = 'btn purple small'; bt.textContent = 'JOIN'; bt.type = 'button';
+    bt.addEventListener('click', () => joinGame(code));
+    row.append(pc, nm, cd, bt); box.append(row);
+  }
+}
+function readHash() { const m = /^#join-([a-z0-9]{4})$/i.exec(location.hash || ''); return m ? m[1].toLowerCase() : null; }
+
+/* ================= wiring ================= */
+$('#btnSolo').addEventListener('click', () => startGame('solo'));
+$('#btnLocal').addEventListener('click', () => startGame('local'));
+$('#btnOnline').addEventListener('click', () => { SFX.init(); openOnline(); });
+$('#btnHost').addEventListener('click', () => hostGame());
+$('#joinForm').addEventListener('submit', (e) => { e.preventDefault(); joinGame($('#codeInput').value); });
+$('#btnOnBack').addEventListener('click', async () => {
+  if (NET.role) {
+    NET.seq++;
+    await leaveChan();
+    G = demoGame();
+    setOnlineUI('idle'); renderGames();
+  } else goMenu();
+});
+$('#btnCopy').addEventListener('click', () => {
+  const inp = $('#inviteLink'), txt = inp.value;
+  const fallback = () => { inp.focus(); inp.select(); toast('Link selected. Copy it to send to your friend.'); };
+  try {
+    navigator.clipboard.writeText(txt).then(() => toast(ART_URL ? 'Invite link copied' : 'Game code copied'), fallback);
+  } catch (e) { fallback(); }
+});
+$('#btnPause').addEventListener('click', () => togglePause());
+$('#btnResume').addEventListener('click', () => { if (G) G.paused = false; show('pause', false); });
+$('#btnQuit').addEventListener('click', () => goMenu());
+$('#btnRematch').addEventListener('click', () => { if (!G) return; show('over', false); startMatch(G); });
+$('#btnMenu').addEventListener('click', () => goMenu());
+$('#btnNoticeOk').addEventListener('click', () => { show('notice', false); const t = noticeThen; noticeThen = null; if (t) t(); });
+for (const id of ['#btnSound', '#btnSound2']) $(id).addEventListener('click', () => { SFX.init(); SFX.setOn(!SFX.on); syncSound(); if (SFX.on) SFX.eat(0); });
+document.querySelectorAll('#skill button').forEach((b) => b.addEventListener('click', () => { skill = b.dataset.v; store.set('skill', skill); syncSkill(); }));
+const nameInput = $('#nameInput');
+nameInput.value = store.get('name', '');
+nameInput.addEventListener('input', () => store.set('name', nameInput.value));
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && G && (G.mode === 'solo' || G.mode === 'local') && G.phase === 'play' && !G.paused) togglePause(true);
+});
+addEventListener('hashchange', () => { const c = readHash(); if (c && !NET.role) joinGame(c); });
+
+layout();
+try { new ResizeObserver(() => layout()).observe(stage); } catch (e) {}
+addEventListener('resize', layout);
+syncSound(); syncSkill(); buildMenuArt();
+G = demoGame();
+const hj = readHash();
+if (hj) { $('#codeInput').value = hj.toUpperCase(); NET.pendingJoin = hj; openOnline(); $('#joinMsg').textContent = 'Connecting…'; }
+initRoom();
+let last = performance.now();
+function frame(t) {
+  const dt = Math.min(0.05, Math.max(0, (t - last) / 1000)); last = t;
+  try { update(dt); render(); if (G) hud(G); } catch (e) { console.error(e); }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
