@@ -1036,7 +1036,7 @@ function mkBubble(i) {
   };
 }
 // bigger bubbles are slower, so the smaller one can get away
-const maxSpeed = (r) => 250 * Math.pow(START_R / r, 0.5);
+const maxSpeed = (r) => 437.5 * Math.pow(START_R / r, 0.5);
 function impulse(b, ang, amt) {
   for (let i = 0; i < NSB; i++) { const c = Math.cos(i / NSB * TAU - ang); if (c > 0) b.ov[i] -= amt * c * c; }
 }
@@ -1061,7 +1061,7 @@ function walls(b) {
   if (b.y > H - b.r) { b.y = H - b.r; if (b.vy > 0) { impulse(b, Math.PI / 2, Math.min(2.4, b.vy / 82)); b.vy = -b.vy * 0.6; } }
 }
 function drive(b, ix, iy, dt) {
-  const ms = maxSpeed(b.r) * (b.boost > 0 ? BOOST_MUL : 1), k = Math.min(1, 7.5 * dt);
+  const ms = maxSpeed(b.r) * (b.boost > 0 ? BOOST_MUL : 1), k = Math.min(1, 13 * dt);
   b.vx += (ix * ms - b.vx) * k; b.vy += (iy * ms - b.vy) * k;
   b.x += b.vx * dt; b.y += b.vy * dt;
   walls(b);
@@ -1075,7 +1075,7 @@ function netFollow(b, dt) {
   const n = b.net; if (!n) return;
   const age = Math.min(0.12, (performance.now() - n.at) / 1000);
   const tx = clamp(n.x + n.vx * age, 0, W), ty = clamp(n.y + n.vy * age, 0, H);
-  if (Math.hypot(tx - b.x, ty - b.y) > 160) { b.x = tx; b.y = ty; }
+  if (Math.hypot(tx - b.x, ty - b.y) > 280) { b.x = tx; b.y = ty; }
   else { const k = Math.min(1, dt * 16); b.x += (tx - b.x) * k; b.y += (ty - b.y) * k; }
   b.vx = n.vx; b.vy = n.vy;
 }
